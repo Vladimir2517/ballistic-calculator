@@ -1,7 +1,11 @@
+using System;
+
 namespace MissionWizardPlugin
 {
     internal static class MissionPointsStore
     {
+        public static event Action PointsChanged;
+
         public static bool HasStart { get; private set; }
         public static bool HasDelivery { get; private set; }
         public static bool HasLanding { get; private set; }
@@ -18,6 +22,7 @@ namespace MissionWizardPlugin
             StartLat = lat;
             StartLon = lon;
             HasStart = true;
+            PointsChanged?.Invoke();
         }
 
         public static void SetDelivery(double lat, double lon)
@@ -25,6 +30,7 @@ namespace MissionWizardPlugin
             DeliveryLat = lat;
             DeliveryLon = lon;
             HasDelivery = true;
+            PointsChanged?.Invoke();
         }
 
         public static void SetLanding(double lat, double lon)
@@ -32,6 +38,7 @@ namespace MissionWizardPlugin
             LandingLat = lat;
             LandingLon = lon;
             HasLanding = true;
+            PointsChanged?.Invoke();
         }
 
         public static void ClearAll()
@@ -46,6 +53,8 @@ namespace MissionWizardPlugin
             DeliveryLon = 0;
             LandingLat = 0;
             LandingLon = 0;
+
+            PointsChanged?.Invoke();
         }
     }
 }

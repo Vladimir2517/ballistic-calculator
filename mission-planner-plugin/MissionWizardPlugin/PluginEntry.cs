@@ -12,6 +12,7 @@ namespace MissionWizardPlugin
         private ToolStripMenuItem setLandingItem;
         private ToolStripMenuItem clearPointsItem;
         private ToolStripItemCollection menuOwnerItems;
+        private MissionMapPointController mapController;
 
         public override string Name => "Mission Wizard";
         public override string Version => "0.1.0";
@@ -65,6 +66,8 @@ namespace MissionWizardPlugin
                 {
                     return false;
                 }
+
+                mapController = new MissionMapPointController(Host);
 
                 return true;
             }
@@ -135,6 +138,12 @@ namespace MissionWizardPlugin
                 menuOwnerItems = null;
             }
 
+            if (mapController != null)
+            {
+                mapController.Dispose();
+                mapController = null;
+            }
+
             return true;
         }
 
@@ -192,6 +201,7 @@ namespace MissionWizardPlugin
             }
 
             MissionPointsStore.SetStart(lat, lon);
+            mapController?.RefreshMarkers();
             MessageBox.Show($"Start point set:\nLat: {lat:F6}\nLon: {lon:F6}",
                 "Mission Wizard", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
@@ -209,6 +219,7 @@ namespace MissionWizardPlugin
             }
 
             MissionPointsStore.SetDelivery(lat, lon);
+            mapController?.RefreshMarkers();
             MessageBox.Show($"Delivery point set:\nLat: {lat:F6}\nLon: {lon:F6}",
                 "Mission Wizard", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
@@ -226,6 +237,7 @@ namespace MissionWizardPlugin
             }
 
             MissionPointsStore.SetLanding(lat, lon);
+            mapController?.RefreshMarkers();
             MessageBox.Show($"Landing point set:\nLat: {lat:F6}\nLon: {lon:F6}",
                 "Mission Wizard", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
@@ -233,6 +245,7 @@ namespace MissionWizardPlugin
         private void OnClearPointsClick(object sender, EventArgs e)
         {
             MissionPointsStore.ClearAll();
+            mapController?.RefreshMarkers();
             MessageBox.Show(
                 "Mission points cleared.",
                 "Mission Wizard",
