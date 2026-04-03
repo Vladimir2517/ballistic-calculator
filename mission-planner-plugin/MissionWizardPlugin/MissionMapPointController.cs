@@ -143,11 +143,6 @@ namespace MissionWizardPlugin
                 }
                 DrawWindArrow(forecastAnchor, _forecastDir, _forecastSpeed, "ПРОГНОЗ", WindColorForecast, GMarkerGoogleType.lightblue_dot, GMarkerGoogleType.blue_small);
             }
-            else if (!hasAutopilot && !_forecastValid)
-            {
-                // Demo arrow if no real wind data available
-                DrawWindArrow(anchor, 45.0f, 5.0f, "ТЕСТОВИЙ ВІТЕР", Color.FromArgb(100, 150, 200), GMarkerGoogleType.orange_dot, GMarkerGoogleType.yellow_small);
-            }
         }
 
         private void DrawWindArrow(PointLatLng anchor, float fromDeg, float speedMps, string label, Color color, GMarkerGoogleType tailType, GMarkerGoogleType headType)
