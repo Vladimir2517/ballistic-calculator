@@ -190,12 +190,39 @@ namespace MissionWizardPlugin
         {
             try
             {
-                WizardDialogService.OpenWizard(Host);
+                var mainForm = Host.MainForm;
+                if (mainForm == null)
+                {
+                    MessageBox.Show(
+                        "Головна форма Mission Planner недоступна.",
+                        "Балистика",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
+
+                // Находим и кликаем на кнопку MenuFlightPlanner для открытия вкладки карты
+                var menuFlightPlannerField = mainForm.GetType().GetField("MenuFlightPlanner",
+                    BindingFlags.Public | BindingFlags.IgnoreCase | BindingFlags.Instance);
+                var menuFlightPlanner = menuFlightPlannerField?.GetValue(mainForm) as ToolStripButton;
+                
+                if (menuFlightPlanner != null)
+                {
+                    menuFlightPlanner.PerformClick();
+                }
+                else
+                {
+                    MessageBox.Show(
+                        "Не вдалося знайти вкладку карти побудови миссії.",
+                        "Балистика",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    "Не вдалося відкрити вкладку Балистика:\n" + ex.Message,
+                    "Не вдалося відкрити карту побудови миссії:\n" + ex.Message,
                     "Балистика",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
