@@ -82,3 +82,12 @@ $$\ddot{x} = -\frac{F_d}{m} \cdot \frac{v_x}{v}, \quad \ddot{y} = -\frac{F_d}{m}
 ## Ліцензія
 
 MIT
+
+## Процес розробки (стандарти)
+
+- Основна гілка: `main`
+- Коміти: Conventional Commits (`feat:`, `fix:`, `docs:` ...)
+- Версіонування: SemVer
+- Облік змін: `CHANGELOG.md` (Keep a Changelog)
+- Етапи проекту: `PROJECT_STATUS.md`
+- Для кожної правки: Issue -> PR -> оновлений `PROJECT_STATUS.md` + `CHANGELOG.md`
