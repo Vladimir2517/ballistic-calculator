@@ -37,6 +37,7 @@ namespace MissionWizardPlugin
         private float _forecastSpeed;
         private bool _forecastValid;
         private string _forecastSource = "Open-Meteo";
+        private string _forecastLastError = "";
         private DateTime _lastForecastFetch = DateTime.MinValue;
         private volatile bool _forecastFetching;
         private readonly string _windyApiKey;
@@ -172,7 +173,12 @@ namespace MissionWizardPlugin
 
             if (speed < 0.1f)
             {
-                text = "Вітер: немає даних";
+                if (_forecastFetching)
+                    text = "Вітер: оновлення...";
+                else if (!string.IsNullOrWhiteSpace(_forecastLastError))
+                    text = "Вітер: немає даних (" + _forecastLastError + ")";
+                else
+                    text = "Вітер: немає даних";
                 foreColor = WindColorNoData;
             }
             else
@@ -227,7 +233,8 @@ namespace MissionWizardPlugin
         private void ScheduleForecastUpdate()
         {
             if (_forecastFetching) return;
-            if ((DateTime.UtcNow - _lastForecastFetch).TotalSeconds < 120) return;
+            var retrySeconds = _forecastValid ? 120 : 15;
+            if ((DateTime.UtcNow - _lastForecastFetch).TotalSeconds < retrySeconds) return;
 
             _forecastFetching = true;
             var anchor = ResolveWindAnchorPoint();
@@ -236,15 +243,22 @@ namespace MissionWizardPlugin
                 try
                 {
                     float d, s;
-                    if (TryReadWindFromWindySync(anchor.Lat, anchor.Lng, out d, out s))
+                    string err;
+                    if (TryReadWindFromWindySync(anchor.Lat, anchor.Lng, out d, out s, out err))
                     {
                         _forecastDir = d; _forecastSpeed = s; _forecastValid = true;
                         _forecastSource = "Windy";
+                        _forecastLastError = "";
                     }
-                    else if (TryReadWindFromForecastSync(anchor.Lat, anchor.Lng, out d, out s))
+                    else if (TryReadWindFromForecastSync(anchor.Lat, anchor.Lng, out d, out s, out err))
                     {
                         _forecastDir = d; _forecastSpeed = s; _forecastValid = true;
                         _forecastSource = "Open-Meteo";
+                        _forecastLastError = "";
+                    }
+                    else
+                    {
+                        _forecastLastError = string.IsNullOrWhiteSpace(err) ? "network" : err;
                     }
                 }
                 finally
@@ -255,10 +269,15 @@ namespace MissionWizardPlugin
             });
         }
 
-        private bool TryReadWindFromWindySync(double lat, double lon, out float dir, out float speed)
+        private bool TryReadWindFromWindySync(double lat, double lon, out float dir, out float speed, out string error)
         {
             dir = 0; speed = 0;
-            if (string.IsNullOrWhiteSpace(_windyApiKey)) return false;
+            error = "";
+            if (string.IsNullOrWhiteSpace(_windyApiKey))
+            {
+                error = "Windy key missing";
+                return false;
+            }
 
             try
             {
@@ -284,7 +303,11 @@ namespace MissionWizardPlugin
                     var json = sr.ReadToEnd();
                     var um = System.Text.RegularExpressions.Regex.Match(json, @"""wind_u-surface""\s*:\s*\[(?<v>-?[0-9]+(?:\.[0-9]+)?)");
                     var vm = System.Text.RegularExpressions.Regex.Match(json, @"""wind_v-surface""\s*:\s*\[(?<v>-?[0-9]+(?:\.[0-9]+)?)");
-                    if (!um.Success || !vm.Success) return false;
+                    if (!um.Success || !vm.Success)
+                    {
+                        error = "Windy parse";
+                        return false;
+                    }
 
                     var u = float.Parse(um.Groups["v"].Value, CultureInfo.InvariantCulture);
                     var v = float.Parse(vm.Groups["v"].Value, CultureInfo.InvariantCulture);
@@ -297,15 +320,23 @@ namespace MissionWizardPlugin
                     return speed > 0.1f;
                 }
             }
+            catch (System.Net.WebException wex)
+            {
+                var code = (wex.Response as System.Net.HttpWebResponse)?.StatusCode;
+                error = code.HasValue ? ("Windy " + (int)code.Value) : "Windy net";
+                return false;
+            }
             catch
             {
+                error = "Windy fail";
                 return false;
             }
         }
 
-        private static bool TryReadWindFromForecastSync(double lat, double lon, out float dir, out float speed)
+        private static bool TryReadWindFromForecastSync(double lat, double lon, out float dir, out float speed, out string error)
         {
             dir = 0; speed = 0;
+            error = "";
             try
             {
                 System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
@@ -320,13 +351,27 @@ namespace MissionWizardPlugin
                     var json = sr.ReadToEnd();
                     var sm = System.Text.RegularExpressions.Regex.Match(json, @"""wind_speed_10m""\s*:\s*(?<v>-?[0-9]+(?:\.[0-9]+)?)");
                     var dm = System.Text.RegularExpressions.Regex.Match(json, @"""wind_direction_10m""\s*:\s*(?<v>-?[0-9]+(?:\.[0-9]+)?)");
-                    if (!sm.Success || !dm.Success) return false;
+                    if (!sm.Success || !dm.Success)
+                    {
+                        error = "OpenMeteo parse";
+                        return false;
+                    }
                     speed = float.Parse(sm.Groups["v"].Value, CultureInfo.InvariantCulture);
                     dir   = float.Parse(dm.Groups["v"].Value, CultureInfo.InvariantCulture);
                     return speed > 0.1f;
                 }
             }
-            catch { return false; }
+            catch (System.Net.WebException wex)
+            {
+                var code = (wex.Response as System.Net.HttpWebResponse)?.StatusCode;
+                error = code.HasValue ? ("OpenMeteo " + (int)code.Value) : "OpenMeteo net";
+                return false;
+            }
+            catch
+            {
+                error = "OpenMeteo fail";
+                return false;
+            }
         }
 
         private static string WindArrow(float fromDeg)
