@@ -7,6 +7,7 @@ namespace MissionWizardPlugin
     public sealed class PluginEntry : Plugin
     {
         private ToolStripMenuItem menuItem;
+        private ToolStripItemCollection menuOwnerItems;
 
         public override string Name => "Mission Wizard";
         public override string Version => "0.1.0";
@@ -23,7 +24,24 @@ namespace MissionWizardPlugin
             {
                 menuItem = new ToolStripMenuItem("Mission Wizard");
                 menuItem.Click += OnMenuClick;
-                Host.FDMenuMap.Items.Add(menuItem);
+
+                // Preferred placement: Flight Planner tab context menu.
+                if (Host.FPMenuMap != null)
+                {
+                    menuOwnerItems = Host.FPMenuMap.Items;
+                    menuOwnerItems.Add(menuItem);
+                }
+                else if (Host.FDMenuMap != null)
+                {
+                    // Fallback for older builds: Flight Data map context menu.
+                    menuOwnerItems = Host.FDMenuMap.Items;
+                    menuOwnerItems.Add(menuItem);
+                }
+                else
+                {
+                    return false;
+                }
+
                 return true;
             }
             catch
@@ -42,8 +60,15 @@ namespace MissionWizardPlugin
             if (menuItem != null)
             {
                 menuItem.Click -= OnMenuClick;
+
+                if (menuOwnerItems != null && menuOwnerItems.Contains(menuItem))
+                {
+                    menuOwnerItems.Remove(menuItem);
+                }
+
                 menuItem.Dispose();
                 menuItem = null;
+                menuOwnerItems = null;
             }
 
             return true;
