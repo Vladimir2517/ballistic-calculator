@@ -10,6 +10,7 @@ namespace MissionWizardPlugin
     internal static class MissionBuilder
     {
         private const double EarthRadiusMeters = 6378137.0;
+        private const float FixedTakeoffPitchDegrees = 12f;
 
         private const int CmdNavTakeoff = 22;
         private const int CmdNavWaypoint = 16;
@@ -37,7 +38,7 @@ namespace MissionWizardPlugin
                 Lat = input.HomeLat,
                 Lon = input.HomeLon,
                 Alt = input.TakeoffAltMeters,
-                Param1 = input.TakeoffPitchDegrees,
+                Param1 = FixedTakeoffPitchDegrees,
                 Param4 = input.WindSpeedMps > 0.1f ? input.WindDirectionFromDeg : input.YawDegrees
             });
 

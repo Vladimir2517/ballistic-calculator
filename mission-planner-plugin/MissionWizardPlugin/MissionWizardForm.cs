@@ -125,7 +125,9 @@ namespace MissionWizardPlugin
             homeLat = CreateNumeric(20, 40, -90, 90, input.HomeLat, 6, 0.000001M);
             homeLon = CreateNumeric(20, 90, -180, 180, input.HomeLon, 6, 0.000001M);
             takeoffAlt = CreateNumeric(20, 140, 5, 500, input.TakeoffAltMeters, 1, 1);
-            takeoffPitch = CreateNumeric(20, 190, 1, 45, input.TakeoffPitchDegrees, 1, 1);
+            takeoffPitch = CreateNumeric(20, 190, 12, 12, 12, 1, 1);
+            takeoffPitch.ReadOnly = true;
+            takeoffPitch.Increment = 0;
             cruiseAlt = CreateNumeric(20, 240, 10, 1000, input.CruiseAltMeters, 1, 1);
             rtlAlt = CreateNumeric(20, 290, 10, 500, input.RtlAltMeters, 1, 1);
 
@@ -318,7 +320,7 @@ namespace MissionWizardPlugin
             input.HomeLat = (double)homeLat.Value;
             input.HomeLon = (double)homeLon.Value;
             input.TakeoffAltMeters = (float)takeoffAlt.Value;
-            input.TakeoffPitchDegrees = (float)takeoffPitch.Value;
+            input.TakeoffPitchDegrees = 12f;
             input.CruiseAltMeters = (float)cruiseAlt.Value;
             input.RtlAltMeters = (float)rtlAlt.Value;
 
