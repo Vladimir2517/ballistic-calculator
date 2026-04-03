@@ -51,7 +51,7 @@ namespace MissionWizardPlugin
 
         private void OnMenuClick(object sender, EventArgs e)
         {
-            using (var wizard = new MissionWizardForm())
+            using (var wizard = new MissionWizardForm(Host))
             {
                 wizard.ShowDialog();
             }

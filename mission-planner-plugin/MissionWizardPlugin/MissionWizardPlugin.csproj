@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <MissionPlannerDir Condition="'$(MissionPlannerDir)' == ''">C:\Program Files (x86)\Mission Planner</MissionPlannerDir>
+    <MissionPlannerDir Condition="'$(MissionPlannerDir)' == ''">D:\mission planner</MissionPlannerDir>
   </PropertyGroup>
 
   <ItemGroup>

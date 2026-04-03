@@ -4,11 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using MissionPlanner.Plugin;
 
 namespace MissionWizardPlugin
 {
     public sealed class MissionWizardForm : Form
     {
+        private readonly PluginHost host;
         private readonly MissionWizardInput input = new MissionWizardInput();
 
         private readonly TabControl tabs = new TabControl();
@@ -33,9 +35,11 @@ namespace MissionWizardPlugin
         private NumericUpDown speed;
         private CheckBox addCamTrigger;
         private NumericUpDown triggerDist;
+        private CheckBox loadDirectlyToFlightPlan;
 
-        public MissionWizardForm()
+        public MissionWizardForm(PluginHost host)
         {
+            this.host = host;
             Text = "Mission Wizard - Step by Step";
             StartPosition = FormStartPosition.CenterScreen;
             Width = 920;
@@ -140,11 +144,21 @@ namespace MissionWizardPlugin
             triggerDist.Enabled = false;
             addCamTrigger.CheckedChanged += (_, __) => triggerDist.Enabled = addCamTrigger.Checked;
 
+            loadDirectlyToFlightPlan = new CheckBox
+            {
+                Left = 20,
+                Top = 200,
+                Width = 320,
+                Checked = true,
+                Text = "Load generated mission directly to Flight Plan"
+            };
+
             page.Controls.Add(CreateLabel("Speed (m/s)", 20, 20));
             page.Controls.Add(speed);
             page.Controls.Add(addCamTrigger);
             page.Controls.Add(CreateLabel("Trigger Distance (m)", 20, 125));
             page.Controls.Add(triggerDist);
+            page.Controls.Add(loadDirectlyToFlightPlan);
 
             return page;
         }
@@ -250,9 +264,16 @@ namespace MissionWizardPlugin
 
                 var outputFile = MissionBuilder.WriteQgcWpl(mission, outputDir);
 
+                if (loadDirectlyToFlightPlan.Checked)
+                {
+                    MissionPlannerIntegration.LoadWaypointsIntoFlightPlanner(host, outputFile);
+                }
+
                 MessageBox.Show(
                     "Mission file generated:\n" + outputFile +
-                    "\n\nImport it in Mission Planner:\nFlight Plan -> Load WP File",
+                    (loadDirectlyToFlightPlan.Checked
+                        ? "\n\nMission was loaded directly into Flight Plan."
+                        : "\n\nImport it in Mission Planner:\nFlight Plan -> Load WP File"),
                     "Mission Ready",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
