@@ -101,7 +101,7 @@ namespace MissionWizardPlugin
             {
                 Width = 180,
                 Height = 34,
-                Text = "Mission Builder",
+                Text = "Балістика",
                 BackColor = Color.FromArgb(29, 78, 216),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
