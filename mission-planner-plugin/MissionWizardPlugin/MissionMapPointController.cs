@@ -105,9 +105,9 @@ namespace MissionWizardPlugin
                 BackColor = Color.FromArgb(29, 78, 216),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
                 Left = Math.Max(10, parent.Width - 190),
-                Top = 12
+                Top = Math.Max(10, parent.Height - 46)
             };
 
             btn.FlatAppearance.BorderSize = 0;
