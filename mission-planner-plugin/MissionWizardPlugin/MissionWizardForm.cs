@@ -56,7 +56,7 @@ namespace MissionWizardPlugin
         public MissionWizardForm(PluginHost host)
         {
             this.host = host;
-            Text = "Майстер місії - покроково";
+            Text = "Mission Control";
             StartPosition = FormStartPosition.CenterScreen;
             Width = 920;
             Height = 640;
@@ -120,7 +120,7 @@ namespace MissionWizardPlugin
 
         private TabPage CreateStep1()
         {
-            var page = new TabPage("1. Старт і висота");
+            var page = new TabPage("Data");
 
             homeLat = CreateNumeric(20, 40, -90, 90, input.HomeLat, 6, 0.000001M);
             homeLon = CreateNumeric(20, 90, -180, 180, input.HomeLon, 6, 0.000001M);
@@ -149,7 +149,7 @@ namespace MissionWizardPlugin
 
         private TabPage CreateStep2()
         {
-            var page = new TabPage("2. Зона обльоту");
+            var page = new TabPage("Planner");
 
             areaCenterLat = CreateNumeric(20, 40, -90, 90, input.AreaCenterLat, 6, 0.000001M);
             areaCenterLon = CreateNumeric(20, 90, -180, 180, input.AreaCenterLon, 6, 0.000001M);
@@ -176,7 +176,7 @@ namespace MissionWizardPlugin
 
         private TabPage CreateStep3()
         {
-            var page = new TabPage("3. Дії та вантаж");
+            var page = new TabPage("Settings");
 
             speed = CreateNumeric(20, 40, 1, 60, input.SpeedMetersPerSecond, 1, 1);
             addCamTrigger = new CheckBox
@@ -289,7 +289,7 @@ namespace MissionWizardPlugin
 
         private TabPage CreateStep4()
         {
-            var page = new TabPage("4. Перевірка і генерація");
+            var page = new TabPage("Review");
 
             summaryBox.Multiline = true;
             summaryBox.ReadOnly = true;
