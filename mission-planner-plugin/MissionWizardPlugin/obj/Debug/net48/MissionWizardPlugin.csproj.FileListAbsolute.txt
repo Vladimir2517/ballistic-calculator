@@ -1,0 +1,6 @@
+C:\Projects\ballistic-calculator\mission-planner-plugin\MissionWizardPlugin\obj\Debug\net48\MissionWizardPlugin.csproj.AssemblyReference.cache
+C:\Projects\ballistic-calculator\mission-planner-plugin\MissionWizardPlugin\obj\Debug\net48\MissionWizardPlugin.GeneratedMSBuildEditorConfig.editorconfig
+C:\Projects\ballistic-calculator\mission-planner-plugin\MissionWizardPlugin\obj\Debug\net48\MissionWizardPlugin.AssemblyInfoInputs.cache
+C:\Projects\ballistic-calculator\mission-planner-plugin\MissionWizardPlugin\obj\Debug\net48\MissionWizardPlugin.AssemblyInfo.cs
+C:\Projects\ballistic-calculator\mission-planner-plugin\MissionWizardPlugin\obj\Debug\net48\MissionWizardPlugin.csproj.CoreCompileInputs.cache
+C:\Projects\ballistic-calculator\mission-planner-plugin\MissionWizardPlugin\obj\Debug\net48\MissionWizardPlugin.sourcelink.json

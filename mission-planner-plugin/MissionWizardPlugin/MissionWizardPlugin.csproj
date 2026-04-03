@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>MissionWizardPlugin</AssemblyName>
+    <RootNamespace>MissionWizardPlugin</RootNamespace>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <MissionPlannerDir Condition="'$(MissionPlannerDir)' == ''">C:\Program Files (x86)\Mission Planner</MissionPlannerDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="MissionPlanner">
+      <HintPath>$(MissionPlannerDir)\MissionPlanner.exe</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>
