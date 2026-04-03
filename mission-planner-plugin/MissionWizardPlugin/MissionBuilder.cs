@@ -16,6 +16,8 @@ namespace MissionWizardPlugin
         private const int CmdNavWaypoint = 16;
         private const int CmdDoChangeSpeed = 178;
         private const int CmdDoSetCamTrigDist = 206;
+        private const int CmdDoSetServo = 183;
+        private const int CmdNavDelay = 93;
         private const int CmdNavReturnToLaunch = 20;
 
         public static IList<MissionItem> Build(MissionWizardInput input)
@@ -64,25 +66,83 @@ namespace MissionWizardPlugin
                 });
             }
 
-            var waypoints = BuildLawnmowerPattern(
-                input.AreaCenterLat,
-                input.AreaCenterLon,
-                input.AreaWidthMeters,
-                input.AreaHeightMeters,
-                input.LaneSpacingMeters,
-                input.CruiseAltMeters,
-                input.YawDegrees);
-
-            foreach (var wp in waypoints)
+            if (!(input.UseDeliveryTarget && input.DeliveryOnlyMission))
             {
+                var waypoints = BuildLawnmowerPattern(
+                    input.AreaCenterLat,
+                    input.AreaCenterLon,
+                    input.AreaWidthMeters,
+                    input.AreaHeightMeters,
+                    input.LaneSpacingMeters,
+                    input.CruiseAltMeters,
+                    input.YawDegrees);
+
+                foreach (var wp in waypoints)
+                {
+                    mission.Add(new MissionItem
+                    {
+                        Seq = seq++,
+                        Command = CmdNavWaypoint,
+                        Lat = wp.lat,
+                        Lon = wp.lon,
+                        Alt = wp.alt
+                    });
+                }
+            }
+
+            if (input.UseDeliveryTarget)
+            {
+                var approach = BuildApproachPoint(
+                    input.HomeLat,
+                    input.HomeLon,
+                    input.DeliveryTargetLat,
+                    input.DeliveryTargetLon,
+                    input.DeliveryRunInMeters);
+
                 mission.Add(new MissionItem
                 {
                     Seq = seq++,
                     Command = CmdNavWaypoint,
-                    Lat = wp.lat,
-                    Lon = wp.lon,
-                    Alt = wp.alt
+                    Lat = approach.lat,
+                    Lon = approach.lon,
+                    Alt = input.CruiseAltMeters
                 });
+
+                mission.Add(new MissionItem
+                {
+                    Seq = seq++,
+                    Command = CmdNavWaypoint,
+                    Lat = input.DeliveryTargetLat,
+                    Lon = input.DeliveryTargetLon,
+                    Alt = input.CruiseAltMeters
+                });
+
+                if (input.AddPayloadRelease)
+                {
+                    mission.Add(new MissionItem
+                    {
+                        Seq = seq++,
+                        Command = CmdDoSetServo,
+                        Param1 = input.PayloadServoNumber,
+                        Param2 = input.PayloadServoPwm,
+                        Lat = 0,
+                        Lon = 0,
+                        Alt = 0
+                    });
+
+                    if (input.PayloadReleaseDelaySeconds > 0)
+                    {
+                        mission.Add(new MissionItem
+                        {
+                            Seq = seq++,
+                            Command = CmdNavDelay,
+                            Param1 = input.PayloadReleaseDelaySeconds,
+                            Lat = input.DeliveryTargetLat,
+                            Lon = input.DeliveryTargetLon,
+                            Alt = input.CruiseAltMeters
+                        });
+                    }
+                }
             }
 
             mission.Add(new MissionItem
@@ -197,6 +257,28 @@ namespace MissionWizardPlugin
             var latOut = latDeg + RadiansToDegrees(dLat);
             var lonOut = lonDeg + RadiansToDegrees(dLon);
             return (latOut, lonOut);
+        }
+
+        private static (double lat, double lon) BuildApproachPoint(
+            double fromLat,
+            double fromLon,
+            double targetLat,
+            double targetLon,
+            float runInMeters)
+        {
+            var dLat = DegreesToRadians(targetLat - fromLat);
+            var dLon = DegreesToRadians(targetLon - fromLon);
+            var lat1 = DegreesToRadians(fromLat);
+            var lat2 = DegreesToRadians(targetLat);
+
+            var y = Math.Sin(dLon) * Math.Cos(lat2);
+            var x = Math.Cos(lat1) * Math.Sin(lat2) - Math.Sin(lat1) * Math.Cos(lat2) * Math.Cos(dLon);
+            var bearing = Math.Atan2(y, x);
+
+            // Move backwards from target by run-in distance.
+            var north = -Math.Cos(bearing) * runInMeters;
+            var east = -Math.Sin(bearing) * runInMeters;
+            return OffsetLatLon(targetLat, targetLon, east, north);
         }
 
         private static double DegreesToRadians(double deg) => deg * Math.PI / 180.0;

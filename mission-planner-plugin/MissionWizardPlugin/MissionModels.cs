@@ -21,6 +21,16 @@ namespace MissionWizardPlugin
         public bool AddCameraTrigger { get; set; } = false;
         public float CameraTriggerMeters { get; set; } = 40;
 
+        public bool UseDeliveryTarget { get; set; } = false;
+        public bool DeliveryOnlyMission { get; set; } = true;
+        public double DeliveryTargetLat { get; set; }
+        public double DeliveryTargetLon { get; set; }
+        public float DeliveryRunInMeters { get; set; } = 120;
+        public bool AddPayloadRelease { get; set; } = true;
+        public float PayloadReleaseDelaySeconds { get; set; } = 0;
+        public int PayloadServoNumber { get; set; } = 9;
+        public int PayloadServoPwm { get; set; } = 1900;
+
         public IList<MissionItem> BuildMissionItems()
         {
             return MissionBuilder.Build(this);

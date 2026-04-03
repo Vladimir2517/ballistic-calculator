@@ -33,9 +33,20 @@ if (-not (Test-Path $pluginsDir)) {
     throw "Plugins directory not found at: $pluginsDir"
 }
 
+$runningMp = Get-Process | Where-Object { $_.ProcessName -like "MissionPlanner*" } | Select-Object -First 1
+if ($runningMp -and $RestartMissionPlanner) {
+    Write-Step "Stopping Mission Planner before deploy"
+    Get-Process | Where-Object { $_.ProcessName -like "MissionPlanner*" } | Stop-Process -Force
+    Start-Sleep -Seconds 1
+    Write-Ok "Mission Planner stopped"
+}
+
 Write-Step "Building plugin project"
 $buildCmd = "dotnet build `"$resolvedProject`" -c $Configuration -p:MissionPlannerDir=`"$MissionPlannerDir`""
 Invoke-Expression $buildCmd
+if ($LASTEXITCODE -ne 0) {
+    throw "Build failed with exit code $LASTEXITCODE. Deployment aborted."
+}
 
 $outputDll = Join-Path (Split-Path $resolvedProject -Parent) "bin\$Configuration\net48\MissionWizardPlugin.dll"
 if (-not (Test-Path $outputDll)) {
@@ -56,12 +67,6 @@ Write-Ok "Plugin deployed: $targetDll"
 
 if ($RestartMissionPlanner) {
     Write-Step "Restarting Mission Planner"
-    $proc = Get-Process -Name "MissionPlanner" -ErrorAction SilentlyContinue
-    if ($proc) {
-        $proc | Stop-Process -Force
-        Start-Sleep -Seconds 1
-    }
-
     Start-Process -FilePath $mpExe -WorkingDirectory $MissionPlannerDir
     Write-Ok "Mission Planner started"
 }
