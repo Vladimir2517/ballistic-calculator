@@ -547,9 +547,8 @@ namespace MissionWizardPlugin
                 }
             }
 
-            var inboundBearingDeg = input.WindSpeedMps > 0.1f
-                ? input.WindDirectionFromDeg
-                : ComputeBearingDegrees(input.HomeLat, input.HomeLon, targetLat, targetLon);
+            // Always approach against wind, consistent with mission build logic.
+            var inboundBearingDeg = input.WindDirectionFromDeg;
 
             var releaseLat = targetLat;
             var releaseLon = targetLon;

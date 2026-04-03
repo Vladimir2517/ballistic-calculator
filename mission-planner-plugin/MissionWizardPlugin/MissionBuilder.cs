@@ -94,12 +94,8 @@ namespace MissionWizardPlugin
             {
                 var deliveryAlt = input.DeliveryTargetRelativeAltMeters + input.DropHeightAboveTargetMeters;
 
-                // Determine inbound bearing (aircraft heading toward target)
-                double inboundBearingDeg = input.WindSpeedMps > 0.1f
-                    ? input.WindDirectionFromDeg
-                    : ComputeBearingDegrees(
-                        input.HomeLat, input.HomeLon,
-                        input.DeliveryTargetLat, input.DeliveryTargetLon);
+                // Always approach and release against wind: aircraft heading equals wind "from" direction.
+                double inboundBearingDeg = input.WindDirectionFromDeg;
 
                 // Actual release point:
                 // When BombReleaseOffsetMeters > 0, plane releases BEFORE the target:
