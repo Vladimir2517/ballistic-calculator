@@ -1,71 +1,55 @@
 using System;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
+using System.Reflection;
+using System.Windows.Forms;
+using MissionPlanner.Plugin;
 
 namespace RadarPlugin
 {
     internal static class AlphaLauncher
     {
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
-
-        [DllImport("user32.dll")]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        private const int SwRestore = 9;
-
-        public static bool TryLaunchOrActivate(out string message)
+        public static bool TryLaunchOrActivate(PluginHost host, out string message)
         {
             message = null;
 
             try
             {
-                var alphaPath = ResolveAlphaPath();
-                if (string.IsNullOrWhiteSpace(alphaPath) || !File.Exists(alphaPath))
+                if (host == null)
                 {
-                    message = "Не знайдено Alpha.exe.\n\n" +
-                              "Вкажіть шлях через змінну середовища ALPHA_APP_PATH\n" +
-                              "або покладіть Alpha в один із типових шляхів:\n" +
-                              "- C:\\Projects\\Alpha\\Alpha.exe\n" +
-                              "- C:\\Alpha\\Alpha.exe\n" +
-                              "- %USERPROFILE%\\Documents\\Alpha\\Alpha.exe";
+                    message = "PluginHost Mission Planner недоступний.";
                     return false;
                 }
 
-                var processName = Path.GetFileNameWithoutExtension(alphaPath);
-                var running = Process.GetProcessesByName(processName)
-                    .FirstOrDefault(p =>
-                    {
-                        try
-                        {
-                            return string.Equals(p.MainModule.FileName, alphaPath, StringComparison.OrdinalIgnoreCase);
-                        }
-                        catch
-                        {
-                            return false;
-                        }
-                    });
+                OpenFlightData(host);
 
-                if (running != null)
+                var alphaMenu = FindAlphaMenu(host);
+                if (alphaMenu == null)
                 {
-                    ActivateWindow(running);
-                    message = "Alpha вже запущено.";
-                    return true;
+                    message = "Не знайдено меню Alpha Map у плагінах Mission Planner.";
+                    return false;
                 }
 
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = alphaPath,
-                    Arguments = BuildArguments(),
-                    WorkingDirectory = ResolveWorkingDirectory(alphaPath),
-                    UseShellExecute = false
-                };
+                var connectItem = alphaMenu.DropDownItems
+                    .OfType<ToolStripItem>()
+                    .FirstOrDefault(item => string.Equals((item.Text ?? string.Empty).Trim(), "Подключиться", StringComparison.OrdinalIgnoreCase));
 
-                Process.Start(startInfo);
-                message = "Alpha запущено.";
+                var refreshItem = alphaMenu.DropDownItems
+                    .OfType<ToolStripItem>()
+                    .FirstOrDefault(item => string.Equals((item.Text ?? string.Empty).Trim(), "Refresh Now", StringComparison.OrdinalIgnoreCase));
+
+                if (connectItem != null)
+                {
+                    connectItem.PerformClick();
+                }
+
+                if (refreshItem != null)
+                {
+                    refreshItem.PerformClick();
+                }
+
+                message = connectItem != null
+                    ? "Alpha Map відкрито в Mission Planner."
+                    : "Меню Alpha Map знайдено, але пункт 'Подключиться' відсутній.";
                 return true;
             }
             catch (Exception ex)
@@ -75,84 +59,38 @@ namespace RadarPlugin
             }
         }
 
-        private static string ResolveAlphaPath()
+        private static void OpenFlightData(PluginHost host)
         {
-            var envPath = (Environment.GetEnvironmentVariable("ALPHA_APP_PATH") ?? string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(envPath))
-            {
-                return envPath;
-            }
-
-            var candidates = new[]
-            {
-                @"C:\Projects\Alpha\Alpha.exe",
-                @"C:\Alpha\Alpha.exe",
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Alpha", "Alpha.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Alpha", "Alpha.exe")
-            };
-
-            return candidates.FirstOrDefault(File.Exists);
-        }
-
-        private static string ResolveWorkingDirectory(string alphaPath)
-        {
-            var envWorkingDir = (Environment.GetEnvironmentVariable("ALPHA_WORKDIR") ?? string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(envWorkingDir) && Directory.Exists(envWorkingDir))
-            {
-                return envWorkingDir;
-            }
-
-            return Path.GetDirectoryName(alphaPath) ?? Environment.CurrentDirectory;
-        }
-
-        private static string BuildArguments()
-        {
-            var rawArgs = (Environment.GetEnvironmentVariable("ALPHA_APP_ARGS") ?? string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(rawArgs))
-            {
-                return rawArgs;
-            }
-
-            var builder = new StringBuilder();
-            builder.Append("--map --connect-server");
-
-            var serverUrl = (Environment.GetEnvironmentVariable("ALPHA_SERVER_URL") ?? string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(serverUrl))
-            {
-                builder.Append(" --server ");
-                builder.Append(Quote(serverUrl));
-            }
-
-            var profile = (Environment.GetEnvironmentVariable("ALPHA_PROFILE") ?? string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(profile))
-            {
-                builder.Append(" --profile ");
-                builder.Append(Quote(profile));
-            }
-
-            return builder.ToString();
-        }
-
-        private static string Quote(string value)
-        {
-            return "\"" + value.Replace("\"", "\\\"") + "\"";
-        }
-
-        private static void ActivateWindow(Process process)
-        {
-            if (process == null)
+            var mainForm = host.MainForm;
+            if (mainForm == null)
             {
                 return;
             }
 
-            var handle = process.MainWindowHandle;
-            if (handle == IntPtr.Zero)
+            var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.IgnoreCase;
+            var menuFlightDataField = mainForm.GetType().GetField("MenuFlightData", flags);
+            var menuFlightData = menuFlightDataField?.GetValue(mainForm) as ToolStripItem;
+            menuFlightData?.PerformClick();
+        }
+
+        private static ToolStripMenuItem FindAlphaMenu(PluginHost host)
+        {
+            var candidates = new[] { host.FDMenuMap, host.FPMenuMap };
+            foreach (var menu in candidates)
             {
-                return;
+                if (menu == null)
+                    continue;
+
+                var alphaItem = menu.Items
+                    .OfType<ToolStripItem>()
+                    .FirstOrDefault(item => string.Equals((item.Text ?? string.Empty).Trim(), "Alpha Map", StringComparison.OrdinalIgnoreCase));
+                if (alphaItem is ToolStripMenuItem alphaMenu)
+                {
+                    return alphaMenu;
+                }
             }
 
-            ShowWindowAsync(handle, SwRestore);
-            SetForegroundWindow(handle);
+            return null;
         }
     }
 }

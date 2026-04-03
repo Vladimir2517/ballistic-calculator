@@ -168,7 +168,7 @@ namespace RadarPlugin
 
         private void OnTopRadarClick(object sender, EventArgs e)
         {
-            if (AlphaLauncher.TryLaunchOrActivate(out var message))
+            if (AlphaLauncher.TryLaunchOrActivate(Host, out var message))
             {
                 return;
             }
