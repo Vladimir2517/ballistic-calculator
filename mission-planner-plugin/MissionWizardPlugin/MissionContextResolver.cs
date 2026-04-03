@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -157,10 +158,14 @@ namespace MissionWizardPlugin
                     lat,
                     lon);
 
-                using (var client = new WebClient())
+                var request = WebRequest.Create(url);
+                request.Timeout = 1500;
+
+                using (var response = request.GetResponse())
+                using (var stream = response.GetResponseStream())
+                using (var reader = new StreamReader(stream))
                 {
-                    client.Headers[HttpRequestHeader.UserAgent] = "MissionWizardPlugin/1.0";
-                    var json = client.DownloadString(url);
+                    var json = reader.ReadToEnd();
 
                     var speedMatch = Regex.Match(json, @"""wind_speed_10m""\s*:\s*(?<v>-?[0-9]+(?:\.[0-9]+)?)");
                     var dirMatch = Regex.Match(json, @"""wind_direction_10m""\s*:\s*(?<v>-?[0-9]+(?:\.[0-9]+)?)");

@@ -149,10 +149,7 @@ namespace MissionWizardPlugin
 
         private void OnMenuClick(object sender, EventArgs e)
         {
-            using (var wizard = new MissionWizardForm(Host))
-            {
-                wizard.ShowDialog();
-            }
+            WizardDialogService.OpenWizard(Host);
         }
 
         private bool TryGetMenuLatLon(out double lat, out double lon)

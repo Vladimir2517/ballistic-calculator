@@ -35,6 +35,7 @@ namespace MissionWizardPlugin
         public float DeliveryTargetRelativeAltMeters { get; set; } = 0;
         public float DropHeightAboveTargetMeters { get; set; } = 100;
         public float DeliveryRunInMeters { get; set; } = 120;
+        public float PostDropEgressMeters { get; set; } = 1000;
         public float LandingRunInMeters { get; set; } = 180;
         public float LandingRelativeAltMeters { get; set; } = 0;
         public bool AddPayloadRelease { get; set; } = true;

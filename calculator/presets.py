@@ -2,7 +2,7 @@
 Pre-defined ammunition / calibre presets.
 """
 
-from calculator.ballistics import Bullet
+from .ballistics import Bullet
 
 PRESETS: dict[str, Bullet] = {
     # ──── Small arms ────────────────────────────────────────────────

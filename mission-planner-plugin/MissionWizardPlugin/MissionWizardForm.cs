@@ -368,6 +368,7 @@ namespace MissionWizardPlugin
                 sb.AppendLine($"Відносна висота цілі: {input.DeliveryTargetRelativeAltMeters:F0} м");
                 sb.AppendLine($"Висота скидання:  {input.DeliveryTargetRelativeAltMeters + input.DropHeightAboveTargetMeters:F0} м");
                 sb.AppendLine($"Дистанц. заходу:  {input.DeliveryRunInMeters:F0} м");
+                sb.AppendLine($"Відхід після скидання: {input.PostDropEgressMeters:F0} м по курсу заходу");
                 sb.AppendLine($"Лише доставка:    {(input.DeliveryOnlyMission ? "ТАК" : "НІ")}");
                 sb.AppendLine($"Скидання вантажу: {(input.AddPayloadRelease ? "УВІМК" : "ВИМК")}");
                 if (input.AddPayloadRelease)
@@ -420,6 +421,7 @@ namespace MissionWizardPlugin
 
                 MessageBox.Show(
                     "Файл місії згенеровано:\n" + outputFile +
+                    $"\n\nПісля точки скидання додано прямий відхід {input.PostDropEgressMeters:F0} м по курсу заходу." +
                     (loadDirectlyToFlightPlan.Checked
                         ? "\n\nМісію завантажено безпосередньо у Flight Plan."
                         : "\n\nІмпорт у Mission Planner:\nFlight Plan -> Load WP File"),

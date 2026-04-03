@@ -118,6 +118,12 @@ namespace MissionWizardPlugin
 
         private void OnBuilderButtonClick(object sender, EventArgs e)
         {
+            if (MissionPointsStore.HasStart && MissionPointsStore.HasDelivery && MissionPointsStore.HasLanding)
+            {
+                QueueOpenWizard();
+                return;
+            }
+
             // Відкрити вкладку Flight Planner для контексту користувача.
             var menuFlightPlannerField = host.MainForm?.GetType().GetField("MenuFlightPlanner");
             var menuFlightPlanner = menuFlightPlannerField?.GetValue(host.MainForm) as ToolStripButton;
@@ -140,49 +146,77 @@ namespace MissionWizardPlugin
 
         private void OnMapMouseClick(object sender, MouseEventArgs e)
         {
-            if (!pickingMode || e.Button != MouseButtons.Left)
-            {
-                return;
-            }
-
-            PointLatLng p;
             try
             {
-                p = map.FromLocalToLatLng(e.X, e.Y);
+                if (!pickingMode || e.Button != MouseButtons.Left)
+                {
+                    return;
+                }
+
+                PointLatLng p;
+                try
+                {
+                    p = map.FromLocalToLatLng(e.X, e.Y);
+                }
+                catch
+                {
+                    return;
+                }
+
+                if (pickStep == 0)
+                {
+                    MissionPointsStore.SetStart(p.Lat, p.Lng);
+                    pickStep = 1;
+                    return;
+                }
+
+                if (pickStep == 1)
+                {
+                    MissionPointsStore.SetDelivery(p.Lat, p.Lng);
+                    pickStep = 2;
+                    return;
+                }
+
+                MissionPointsStore.SetLanding(p.Lat, p.Lng);
+                pickingMode = false;
+                pickStep = 0;
+
+                MessageBox.Show(
+                    "Точки зібрано: СТАРТ, ДОСТАВКА, ПОСАДКА.\nЗараз відкриється Майстер місії.",
+                    "Балістика",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+
+                QueueOpenWizard();
             }
-            catch
+            catch (Exception ex)
             {
-                return;
+                pickingMode = false;
+                pickStep = 0;
+
+                MessageBox.Show(
+                    "Помилка обробки кліку на карті:\n" + ex.Message,
+                    "Балістика",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
-
-            if (pickStep == 0)
-            {
-                MissionPointsStore.SetStart(p.Lat, p.Lng);
-                pickStep = 1;
-                return;
-            }
-
-            if (pickStep == 1)
-            {
-                MissionPointsStore.SetDelivery(p.Lat, p.Lng);
-                pickStep = 2;
-                return;
-            }
-
-            MissionPointsStore.SetLanding(p.Lat, p.Lng);
-            pickingMode = false;
-            pickStep = 0;
-
-            MessageBox.Show(
-                "Точки зібрано: СТАРТ, ДОСТАВКА, ПОСАДКА.\nВідкрийте Майстер місії для генерації.",
-                "Балістика",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
         }
 
         private void OnPointsChanged()
         {
             RefreshMarkers();
+        }
+
+        private void QueueOpenWizard()
+        {
+            var uiTarget = host?.MainForm as Control;
+            if (uiTarget != null && !uiTarget.IsDisposed)
+            {
+                uiTarget.BeginInvoke(new Action(() => WizardDialogService.OpenWizard(host)));
+                return;
+            }
+
+            WizardDialogService.OpenWizard(host);
         }
 
         private static GMapMarker CreateMarker(double lat, double lon, string label, GMarkerGoogleType type)

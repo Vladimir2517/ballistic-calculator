@@ -19,7 +19,6 @@ namespace MissionWizardPlugin
         private const int CmdNavDelay = 93;
         private const int CmdNavLand = 21;
         private const int CmdNavReturnToLaunch = 20;
-
         public static IList<MissionItem> Build(MissionWizardInput input)
         {
             if (input.LaneSpacingMeters <= 0)
@@ -93,6 +92,7 @@ namespace MissionWizardPlugin
             if (input.UseDeliveryTarget)
             {
                 var deliveryAlt = input.DeliveryTargetRelativeAltMeters + input.DropHeightAboveTargetMeters;
+                double inboundBearingDeg;
                 var deliveryApproach = input.WindSpeedMps > 0.1f
                     ? BuildApproachPointAgainstWind(
                         input.DeliveryTargetLat,
@@ -105,6 +105,20 @@ namespace MissionWizardPlugin
                         input.DeliveryTargetLat,
                         input.DeliveryTargetLon,
                         input.DeliveryRunInMeters);
+
+                inboundBearingDeg = input.WindSpeedMps > 0.1f
+                    ? input.WindDirectionFromDeg
+                    : ComputeBearingDegrees(
+                        deliveryApproach.lat,
+                        deliveryApproach.lon,
+                        input.DeliveryTargetLat,
+                        input.DeliveryTargetLon);
+
+                var deliveryEgress = OffsetLatLonByBearing(
+                    input.DeliveryTargetLat,
+                    input.DeliveryTargetLon,
+                    inboundBearingDeg,
+                    input.PostDropEgressMeters);
 
                 mission.Add(new MissionItem
                 {
@@ -150,6 +164,15 @@ namespace MissionWizardPlugin
                         });
                     }
                 }
+
+                mission.Add(new MissionItem
+                {
+                    Seq = seq++,
+                    Command = CmdNavWaypoint,
+                    Lat = deliveryEgress.lat,
+                    Lon = deliveryEgress.lon,
+                    Alt = deliveryAlt
+                });
             }
 
             if (input.UsePointRoute)
@@ -343,6 +366,34 @@ namespace MissionWizardPlugin
             var north = -Math.Cos(bearing) * runInMeters;
             var east = -Math.Sin(bearing) * runInMeters;
             return OffsetLatLon(targetLat, targetLon, east, north);
+        }
+
+        private static (double lat, double lon) OffsetLatLonByBearing(
+            double startLat,
+            double startLon,
+            double bearingDeg,
+            double distanceMeters)
+        {
+            var bearing = DegreesToRadians(bearingDeg);
+            var north = Math.Cos(bearing) * distanceMeters;
+            var east = Math.Sin(bearing) * distanceMeters;
+            return OffsetLatLon(startLat, startLon, east, north);
+        }
+
+        private static double ComputeBearingDegrees(
+            double fromLat,
+            double fromLon,
+            double toLat,
+            double toLon)
+        {
+            var dLon = DegreesToRadians(toLon - fromLon);
+            var lat1 = DegreesToRadians(fromLat);
+            var lat2 = DegreesToRadians(toLat);
+
+            var y = Math.Sin(dLon) * Math.Cos(lat2);
+            var x = Math.Cos(lat1) * Math.Sin(lat2) - Math.Sin(lat1) * Math.Cos(lat2) * Math.Cos(dLon);
+            var bearing = RadiansToDegrees(Math.Atan2(y, x));
+            return (bearing + 360.0) % 360.0;
         }
 
         private static double DegreesToRadians(double deg) => deg * Math.PI / 180.0;
