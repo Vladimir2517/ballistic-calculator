@@ -5,12 +5,26 @@ repo_url: https://github.com/Vladimir2517/ballistic-calculator
 repo_name: Vladimir2517/ballistic-calculator
 
 theme:
-  name: mkdocs
+  name: material
+  language: ru
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: blue grey
+      accent: blue
 
 markdown_extensions:
   - tables
   - toc:
       permalink: true
+  - admonition
+  - pymdownx.details
+
+extra_css:
+  - stylesheets/extra.css
 
 nav:
   - Home: index.md

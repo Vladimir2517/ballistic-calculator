@@ -1,16 +1,24 @@
 # Ballistic Calculator Documentation
 
-Welcome to the official documentation site for Ballistic Calculator.
+Официальный центр документации проекта Ballistic Calculator.
 
-## Quick links
+## User Guides
 
-- [User Guides Hub](user-guides/ballistic-calculator-user-guides/README.md)
-- [Project Repository](https://github.com/Vladimir2517/ballistic-calculator)
+<div class="guide-grid">
+	<div class="guide-card">
+		<a href="user-guides/ballistic-calculator-user-guides/README.md">Ballistic Calculator User Guides chevron-right</a>
+		<div class="guide-meta">Полный набор практических руководств по эксплуатации</div>
+	</div>
+	<div class="guide-card">
+		<a href="https://github.com/Vladimir2517/ballistic-calculator">Project Repository chevron-right</a>
+		<div class="guide-meta">Исходный код, issues, changelog и workflow</div>
+	</div>
+</div>
 
-## What you will find here
+## Additional Links
 
-- Installation and first run instructions
-- Ballistic table and trajectory usage guides
-- Wind correction workflow
-- Custom ammunition setup
-- Troubleshooting and process documentation
+- [Changelog](https://github.com/Vladimir2517/ballistic-calculator/blob/main/CHANGELOG.md)
+- [Project Status](https://github.com/Vladimir2517/ballistic-calculator/blob/main/PROJECT_STATUS.md)
+- [Contributing](https://github.com/Vladimir2517/ballistic-calculator/blob/main/CONTRIBUTING.md)
+
+Last updated: 2026-04-03
