@@ -18,6 +18,7 @@ namespace MissionWizardPlugin
         private const int CmdDoSetCamTrigDist = 206;
         private const int CmdDoSetServo = 183;
         private const int CmdNavDelay = 93;
+        private const int CmdNavLand = 21;
         private const int CmdNavReturnToLaunch = 20;
 
         public static IList<MissionItem> Build(MissionWizardInput input)
@@ -143,6 +144,38 @@ namespace MissionWizardPlugin
                         });
                     }
                 }
+            }
+
+            if (input.UsePointRoute)
+            {
+                if (!input.HasDeliveryPoint)
+                {
+                    throw new InvalidOperationException("Delivery point is not set.");
+                }
+                if (!input.HasLandingPoint)
+                {
+                    throw new InvalidOperationException("Landing point is not set.");
+                }
+
+                mission.Add(new MissionItem
+                {
+                    Seq = seq++,
+                    Command = CmdNavWaypoint,
+                    Lat = input.LandingLat,
+                    Lon = input.LandingLon,
+                    Alt = input.CruiseAltMeters
+                });
+
+                mission.Add(new MissionItem
+                {
+                    Seq = seq++,
+                    Command = CmdNavLand,
+                    Lat = input.LandingLat,
+                    Lon = input.LandingLon,
+                    Alt = 0
+                });
+
+                return mission;
             }
 
             mission.Add(new MissionItem

@@ -21,6 +21,12 @@ namespace MissionWizardPlugin
         public bool AddCameraTrigger { get; set; } = false;
         public float CameraTriggerMeters { get; set; } = 40;
 
+        public bool UsePointRoute { get; set; } = false;
+        public bool HasDeliveryPoint { get; set; } = false;
+        public bool HasLandingPoint { get; set; } = false;
+        public double LandingLat { get; set; }
+        public double LandingLon { get; set; }
+
         public bool UseDeliveryTarget { get; set; } = false;
         public bool DeliveryOnlyMission { get; set; } = true;
         public double DeliveryTargetLat { get; set; }

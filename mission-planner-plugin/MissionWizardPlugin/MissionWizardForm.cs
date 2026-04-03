@@ -36,10 +36,13 @@ namespace MissionWizardPlugin
         private CheckBox addCamTrigger;
         private NumericUpDown triggerDist;
         private CheckBox loadDirectlyToFlightPlan;
+        private CheckBox usePointRoute;
         private CheckBox useDeliveryTarget;
         private CheckBox deliveryOnlyMission;
         private NumericUpDown deliveryTargetLat;
         private NumericUpDown deliveryTargetLon;
+        private NumericUpDown landingLat;
+        private NumericUpDown landingLon;
         private NumericUpDown runInDistance;
         private CheckBox addPayloadRelease;
         private NumericUpDown payloadServo;
@@ -83,11 +86,26 @@ namespace MissionWizardPlugin
 
             UpdateButtons();
 
-            if (DeliveryTargetStore.HasTarget)
+            if (MissionPointsStore.HasStart)
             {
+                input.HomeLat = MissionPointsStore.StartLat;
+                input.HomeLon = MissionPointsStore.StartLon;
+            }
+
+            if (MissionPointsStore.HasDelivery)
+            {
+                input.UsePointRoute = true;
                 input.UseDeliveryTarget = true;
-                input.DeliveryTargetLat = DeliveryTargetStore.TargetLat;
-                input.DeliveryTargetLon = DeliveryTargetStore.TargetLon;
+                input.HasDeliveryPoint = true;
+                input.DeliveryTargetLat = MissionPointsStore.DeliveryLat;
+                input.DeliveryTargetLon = MissionPointsStore.DeliveryLon;
+            }
+
+            if (MissionPointsStore.HasLanding)
+            {
+                input.HasLandingPoint = true;
+                input.LandingLat = MissionPointsStore.LandingLat;
+                input.LandingLon = MissionPointsStore.LandingLon;
             }
 
             BuildSummary();
@@ -170,10 +188,19 @@ namespace MissionWizardPlugin
                 Text = "Load generated mission directly to Flight Plan"
             };
 
-            useDeliveryTarget = new CheckBox
+            usePointRoute = new CheckBox
             {
                 Left = 20,
                 Top = 235,
+                Width = 320,
+                Checked = input.UsePointRoute,
+                Text = "Use map points route (Start -> Delivery -> Landing)"
+            };
+
+            useDeliveryTarget = new CheckBox
+            {
+                Left = 20,
+                Top = 265,
                 Width = 320,
                 Checked = input.UseDeliveryTarget,
                 Text = "Use delivery target (set from map)"
@@ -182,7 +209,7 @@ namespace MissionWizardPlugin
             deliveryOnlyMission = new CheckBox
             {
                 Left = 20,
-                Top = 265,
+                Top = 295,
                 Width = 340,
                 Checked = input.DeliveryOnlyMission,
                 Text = "Delivery only mission (skip survey pattern)"
@@ -190,18 +217,21 @@ namespace MissionWizardPlugin
 
             deliveryTargetLat = CreateNumeric(380, 235, -90, 90, input.DeliveryTargetLat, 6, 0.000001M);
             deliveryTargetLon = CreateNumeric(380, 285, -180, 180, input.DeliveryTargetLon, 6, 0.000001M);
+            landingLat = CreateNumeric(380, 335, -90, 90, input.LandingLat, 6, 0.000001M);
+            landingLon = CreateNumeric(380, 385, -180, 180, input.LandingLon, 6, 0.000001M);
             runInDistance = CreateNumeric(380, 335, 20, 2000, input.DeliveryRunInMeters, 1, 5);
+            runInDistance.Top = 400;
             addPayloadRelease = new CheckBox
             {
                 Left = 380,
-                Top = 370,
+                Top = 430,
                 Width = 260,
                 Checked = input.AddPayloadRelease,
                 Text = "Add payload release command"
             };
-            payloadServo = CreateNumeric(380, 420, 1, 16, input.PayloadServoNumber, 0, 1);
-            payloadPwm = CreateNumeric(540, 420, 900, 2200, input.PayloadServoPwm, 0, 10);
-            payloadDelay = CreateNumeric(700, 420, 0, 30, input.PayloadReleaseDelaySeconds, 1, 0.5M);
+            payloadServo = CreateNumeric(380, 460, 1, 16, input.PayloadServoNumber, 0, 1);
+            payloadPwm = CreateNumeric(540, 460, 900, 2200, input.PayloadServoPwm, 0, 10);
+            payloadDelay = CreateNumeric(700, 460, 0, 30, input.PayloadReleaseDelaySeconds, 1, 0.5M);
 
             page.Controls.Add(CreateLabel("Speed (m/s)", 20, 20));
             page.Controls.Add(speed);
@@ -209,6 +239,7 @@ namespace MissionWizardPlugin
             page.Controls.Add(CreateLabel("Trigger Distance (m)", 20, 125));
             page.Controls.Add(triggerDist);
             page.Controls.Add(loadDirectlyToFlightPlan);
+            page.Controls.Add(usePointRoute);
             page.Controls.Add(useDeliveryTarget);
             page.Controls.Add(deliveryOnlyMission);
 
@@ -216,14 +247,18 @@ namespace MissionWizardPlugin
             page.Controls.Add(deliveryTargetLat);
             page.Controls.Add(CreateLabel("Delivery Target Longitude", 380, 265));
             page.Controls.Add(deliveryTargetLon);
-            page.Controls.Add(CreateLabel("Run-in Distance (m)", 380, 315));
+            page.Controls.Add(CreateLabel("Landing Latitude", 380, 315));
+            page.Controls.Add(landingLat);
+            page.Controls.Add(CreateLabel("Landing Longitude", 380, 365));
+            page.Controls.Add(landingLon);
+            page.Controls.Add(CreateLabel("Run-in Distance (m)", 380, 380));
             page.Controls.Add(runInDistance);
             page.Controls.Add(addPayloadRelease);
-            page.Controls.Add(CreateLabel("Servo", 380, 400));
+            page.Controls.Add(CreateLabel("Servo", 380, 440));
             page.Controls.Add(payloadServo);
-            page.Controls.Add(CreateLabel("PWM", 540, 400));
+            page.Controls.Add(CreateLabel("PWM", 540, 440));
             page.Controls.Add(payloadPwm);
-            page.Controls.Add(CreateLabel("Delay (s)", 700, 400));
+            page.Controls.Add(CreateLabel("Delay (s)", 700, 440));
             page.Controls.Add(payloadDelay);
 
             return page;
@@ -276,10 +311,15 @@ namespace MissionWizardPlugin
             input.AddCameraTrigger = addCamTrigger.Checked;
             input.CameraTriggerMeters = (float)triggerDist.Value;
 
+            input.UsePointRoute = usePointRoute.Checked;
             input.UseDeliveryTarget = useDeliveryTarget.Checked;
             input.DeliveryOnlyMission = deliveryOnlyMission.Checked;
             input.DeliveryTargetLat = (double)deliveryTargetLat.Value;
             input.DeliveryTargetLon = (double)deliveryTargetLon.Value;
+            input.HasDeliveryPoint = input.UseDeliveryTarget;
+            input.LandingLat = (double)landingLat.Value;
+            input.LandingLon = (double)landingLon.Value;
+            input.HasLandingPoint = input.UsePointRoute;
             input.DeliveryRunInMeters = (float)runInDistance.Value;
             input.AddPayloadRelease = addPayloadRelease.Checked;
             input.PayloadServoNumber = (int)payloadServo.Value;
@@ -311,6 +351,7 @@ namespace MissionWizardPlugin
             {
                 sb.AppendLine($"Trig dist:   {input.CameraTriggerMeters:F0} m");
             }
+            sb.AppendLine($"Point route: {(input.UsePointRoute ? "ON" : "OFF")}");
             sb.AppendLine($"Use target:  {(input.UseDeliveryTarget ? "ON" : "OFF")}");
             if (input.UseDeliveryTarget)
             {
@@ -323,6 +364,10 @@ namespace MissionWizardPlugin
                     sb.AppendLine($"Servo/PWM:   {input.PayloadServoNumber} / {input.PayloadServoPwm}");
                     sb.AppendLine($"Delay:       {input.PayloadReleaseDelaySeconds:F1} s");
                 }
+            }
+            if (input.UsePointRoute)
+            {
+                sb.AppendLine($"Landing:     {input.LandingLat:F6}, {input.LandingLon:F6}");
             }
 
             try

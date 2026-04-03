@@ -7,8 +7,10 @@ namespace MissionWizardPlugin
     public sealed class PluginEntry : Plugin
     {
         private ToolStripMenuItem menuItem;
-        private ToolStripMenuItem setTargetItem;
-        private ToolStripMenuItem clearTargetItem;
+        private ToolStripMenuItem setStartItem;
+        private ToolStripMenuItem setDeliveryItem;
+        private ToolStripMenuItem setLandingItem;
+        private ToolStripMenuItem clearPointsItem;
         private ToolStripItemCollection menuOwnerItems;
 
         public override string Name => "Mission Wizard";
@@ -27,26 +29,36 @@ namespace MissionWizardPlugin
                 menuItem = new ToolStripMenuItem("Mission Wizard");
                 menuItem.Click += OnMenuClick;
 
-                setTargetItem = new ToolStripMenuItem("Set Delivery Target Here");
-                setTargetItem.Click += OnSetTargetClick;
+                setStartItem = new ToolStripMenuItem("Set Start Point Here");
+                setStartItem.Click += OnSetStartClick;
 
-                clearTargetItem = new ToolStripMenuItem("Clear Delivery Target");
-                clearTargetItem.Click += OnClearTargetClick;
+                setDeliveryItem = new ToolStripMenuItem("Set Delivery Point Here");
+                setDeliveryItem.Click += OnSetDeliveryClick;
+
+                setLandingItem = new ToolStripMenuItem("Set Landing Point Here");
+                setLandingItem.Click += OnSetLandingClick;
+
+                clearPointsItem = new ToolStripMenuItem("Clear Mission Points");
+                clearPointsItem.Click += OnClearPointsClick;
 
                 // Preferred placement: Flight Planner tab context menu.
                 if (Host.FPMenuMap != null)
                 {
                     menuOwnerItems = Host.FPMenuMap.Items;
-                    menuOwnerItems.Add(setTargetItem);
-                    menuOwnerItems.Add(clearTargetItem);
+                    menuOwnerItems.Add(setStartItem);
+                    menuOwnerItems.Add(setDeliveryItem);
+                    menuOwnerItems.Add(setLandingItem);
+                    menuOwnerItems.Add(clearPointsItem);
                     menuOwnerItems.Add(menuItem);
                 }
                 else if (Host.FDMenuMap != null)
                 {
                     // Fallback for older builds: Flight Data map context menu.
                     menuOwnerItems = Host.FDMenuMap.Items;
-                    menuOwnerItems.Add(setTargetItem);
-                    menuOwnerItems.Add(clearTargetItem);
+                    menuOwnerItems.Add(setStartItem);
+                    menuOwnerItems.Add(setDeliveryItem);
+                    menuOwnerItems.Add(setLandingItem);
+                    menuOwnerItems.Add(clearPointsItem);
                     menuOwnerItems.Add(menuItem);
                 }
                 else
@@ -72,34 +84,54 @@ namespace MissionWizardPlugin
             if (menuItem != null)
             {
                 menuItem.Click -= OnMenuClick;
-                if (setTargetItem != null)
+                if (setStartItem != null)
                 {
-                    setTargetItem.Click -= OnSetTargetClick;
+                    setStartItem.Click -= OnSetStartClick;
                 }
-                if (clearTargetItem != null)
+                if (setDeliveryItem != null)
                 {
-                    clearTargetItem.Click -= OnClearTargetClick;
+                    setDeliveryItem.Click -= OnSetDeliveryClick;
+                }
+                if (setLandingItem != null)
+                {
+                    setLandingItem.Click -= OnSetLandingClick;
+                }
+                if (clearPointsItem != null)
+                {
+                    clearPointsItem.Click -= OnClearPointsClick;
                 }
 
                 if (menuOwnerItems != null && menuOwnerItems.Contains(menuItem))
                 {
                     menuOwnerItems.Remove(menuItem);
                 }
-                if (menuOwnerItems != null && setTargetItem != null && menuOwnerItems.Contains(setTargetItem))
+                if (menuOwnerItems != null && setStartItem != null && menuOwnerItems.Contains(setStartItem))
                 {
-                    menuOwnerItems.Remove(setTargetItem);
+                    menuOwnerItems.Remove(setStartItem);
                 }
-                if (menuOwnerItems != null && clearTargetItem != null && menuOwnerItems.Contains(clearTargetItem))
+                if (menuOwnerItems != null && setDeliveryItem != null && menuOwnerItems.Contains(setDeliveryItem))
                 {
-                    menuOwnerItems.Remove(clearTargetItem);
+                    menuOwnerItems.Remove(setDeliveryItem);
+                }
+                if (menuOwnerItems != null && setLandingItem != null && menuOwnerItems.Contains(setLandingItem))
+                {
+                    menuOwnerItems.Remove(setLandingItem);
+                }
+                if (menuOwnerItems != null && clearPointsItem != null && menuOwnerItems.Contains(clearPointsItem))
+                {
+                    menuOwnerItems.Remove(clearPointsItem);
                 }
 
                 menuItem.Dispose();
-                setTargetItem?.Dispose();
-                clearTargetItem?.Dispose();
+                setStartItem?.Dispose();
+                setDeliveryItem?.Dispose();
+                setLandingItem?.Dispose();
+                clearPointsItem?.Dispose();
                 menuItem = null;
-                setTargetItem = null;
-                clearTargetItem = null;
+                setStartItem = null;
+                setDeliveryItem = null;
+                setLandingItem = null;
+                clearPointsItem = null;
                 menuOwnerItems = null;
             }
 
@@ -114,14 +146,17 @@ namespace MissionWizardPlugin
             }
         }
 
-        private void OnSetTargetClick(object sender, EventArgs e)
+        private bool TryGetMenuLatLon(out double lat, out double lon)
         {
+            lat = 0;
+            lon = 0;
+
             try
             {
                 var pointObj = Host.GetType().GetProperty("FPMenuMapPosition")?.GetValue(Host, null);
                 if (pointObj == null)
                 {
-                    throw new InvalidOperationException("Map position is unavailable.");
+                    return false;
                 }
 
                 var pointType = pointObj.GetType();
@@ -131,34 +166,75 @@ namespace MissionWizardPlugin
 
                 if (latObj == null || lonObj == null)
                 {
-                    throw new InvalidOperationException("Could not read map position coordinates.");
+                    return false;
                 }
 
-                var lat = Convert.ToDouble(latObj);
-                var lon = Convert.ToDouble(lonObj);
-
-                DeliveryTargetStore.Set(lat, lon);
-                MessageBox.Show(
-                    $"Delivery target set:\nLat: {lat:F6}\nLon: {lon:F6}",
-                    "Mission Wizard",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                lat = Convert.ToDouble(latObj);
+                lon = Convert.ToDouble(lonObj);
+                return true;
             }
-            catch (Exception ex)
+            catch
             {
-                MessageBox.Show(
-                    "Failed to set target from map:\n" + ex.Message,
-                    "Mission Wizard",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                return false;
             }
         }
 
-        private void OnClearTargetClick(object sender, EventArgs e)
+        private void OnSetStartClick(object sender, EventArgs e)
         {
-            DeliveryTargetStore.Clear();
+            if (!TryGetMenuLatLon(out var lat, out var lon))
+            {
+                MessageBox.Show(
+                    "Failed to read map coordinates.",
+                    "Mission Wizard",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            MissionPointsStore.SetStart(lat, lon);
+            MessageBox.Show($"Start point set:\nLat: {lat:F6}\nLon: {lon:F6}",
+                "Mission Wizard", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void OnSetDeliveryClick(object sender, EventArgs e)
+        {
+            if (!TryGetMenuLatLon(out var lat, out var lon))
+            {
+                MessageBox.Show(
+                    "Failed to read map coordinates.",
+                    "Mission Wizard",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            MissionPointsStore.SetDelivery(lat, lon);
+            MessageBox.Show($"Delivery point set:\nLat: {lat:F6}\nLon: {lon:F6}",
+                "Mission Wizard", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void OnSetLandingClick(object sender, EventArgs e)
+        {
+            if (!TryGetMenuLatLon(out var lat, out var lon))
+            {
+                MessageBox.Show(
+                    "Failed to read map coordinates.",
+                    "Mission Wizard",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            MissionPointsStore.SetLanding(lat, lon);
+            MessageBox.Show($"Landing point set:\nLat: {lat:F6}\nLon: {lon:F6}",
+                "Mission Wizard", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void OnClearPointsClick(object sender, EventArgs e)
+        {
+            MissionPointsStore.ClearAll();
             MessageBox.Show(
-                "Delivery target cleared.",
+                "Mission points cleared.",
                 "Mission Wizard",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
