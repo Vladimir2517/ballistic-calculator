@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.Text;
 using System.Windows.Forms;
 using GMap.NET;
 using GMap.NET.WindowsForms;
@@ -35,13 +36,16 @@ namespace MissionWizardPlugin
         private float _forecastDir;
         private float _forecastSpeed;
         private bool _forecastValid;
+        private string _forecastSource = "Open-Meteo";
         private DateTime _lastForecastFetch = DateTime.MinValue;
         private volatile bool _forecastFetching;
+        private readonly string _windyApiKey;
 
         public MissionMapPointController(PluginHost host)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
             map = host.FPGMapControl ?? throw new InvalidOperationException("Карта Flight Planner недоступна.");
+            _windyApiKey = (Environment.GetEnvironmentVariable("MISSION_WINDY_API_KEY") ?? string.Empty).Trim();
 
             overlay = new GMapOverlay("MissionWizardPoints");
             map.Overlays.Add(overlay);
@@ -217,7 +221,7 @@ namespace MissionWizardPlugin
         {
             dir = 0; speed = 0; source = "Немає даних";
             if (TryReadWindFromAutopilot(out dir, out speed) && speed > 0.1f) { source = "Автопілот"; return; }
-            if (_forecastValid && _forecastSpeed > 0.1f) { dir = _forecastDir; speed = _forecastSpeed; source = "Open-Meteo"; }
+            if (_forecastValid && _forecastSpeed > 0.1f) { dir = _forecastDir; speed = _forecastSpeed; source = _forecastSource; }
         }
 
         private void ScheduleForecastUpdate()
@@ -231,14 +235,72 @@ namespace MissionWizardPlugin
             {
                 try
                 {
-                    if (TryReadWindFromForecastSync(anchor.Lat, anchor.Lng, out var d, out var s))
+                    float d, s;
+                    if (TryReadWindFromWindySync(anchor.Lat, anchor.Lng, out d, out s))
                     {
                         _forecastDir = d; _forecastSpeed = s; _forecastValid = true;
-                        _lastForecastFetch = DateTime.UtcNow;
+                        _forecastSource = "Windy";
+                    }
+                    else if (TryReadWindFromForecastSync(anchor.Lat, anchor.Lng, out d, out s))
+                    {
+                        _forecastDir = d; _forecastSpeed = s; _forecastValid = true;
+                        _forecastSource = "Open-Meteo";
                     }
                 }
-                finally { _forecastFetching = false; }
+                finally
+                {
+                    _lastForecastFetch = DateTime.UtcNow;
+                    _forecastFetching = false;
+                }
             });
+        }
+
+        private bool TryReadWindFromWindySync(double lat, double lon, out float dir, out float speed)
+        {
+            dir = 0; speed = 0;
+            if (string.IsNullOrWhiteSpace(_windyApiKey)) return false;
+
+            try
+            {
+                System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+                var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://api.windy.com/api/point-forecast/v2");
+                req.Method = "POST";
+                req.Timeout = 5000;
+                req.ContentType = "application/json";
+                req.UserAgent = "MissionWizardPlugin/1.0";
+
+                var body = string.Format(CultureInfo.InvariantCulture,
+                    "{{\"lat\":{0},\"lon\":{1},\"model\":\"gfs\",\"parameters\":[\"wind\"],\"levels\":[\"surface\"],\"key\":\"{2}\"}}",
+                    lat, lon, _windyApiKey.Replace("\\", "\\\\").Replace("\"", "\\\""));
+                var bytes = Encoding.UTF8.GetBytes(body);
+                req.ContentLength = bytes.Length;
+
+                using (var rs = req.GetRequestStream())
+                    rs.Write(bytes, 0, bytes.Length);
+
+                using (var resp = req.GetResponse())
+                using (var sr = new System.IO.StreamReader(resp.GetResponseStream()))
+                {
+                    var json = sr.ReadToEnd();
+                    var um = System.Text.RegularExpressions.Regex.Match(json, @"""wind_u-surface""\s*:\s*\[(?<v>-?[0-9]+(?:\.[0-9]+)?)");
+                    var vm = System.Text.RegularExpressions.Regex.Match(json, @"""wind_v-surface""\s*:\s*\[(?<v>-?[0-9]+(?:\.[0-9]+)?)");
+                    if (!um.Success || !vm.Success) return false;
+
+                    var u = float.Parse(um.Groups["v"].Value, CultureInfo.InvariantCulture);
+                    var v = float.Parse(vm.Groups["v"].Value, CultureInfo.InvariantCulture);
+
+                    speed = (float)Math.Sqrt(u * u + v * v);
+                    var towardDeg = Math.Atan2(u, v) * 180.0 / Math.PI;
+                    if (towardDeg < 0) towardDeg += 360.0;
+                    dir = (float)((towardDeg + 180.0) % 360.0);
+
+                    return speed > 0.1f;
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static bool TryReadWindFromForecastSync(double lat, double lon, out float dir, out float speed)
