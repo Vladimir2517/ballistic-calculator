@@ -31,6 +31,13 @@ namespace MissionWizardPlugin
         private static readonly Color WindColorXlsx       = Color.FromArgb(255, 165,   0);
         private static readonly Color WindColorNoData     = Color.FromArgb(140, 140, 140);
 
+        // Forecast cache — updated in background every 2 minutes
+        private float _forecastDir;
+        private float _forecastSpeed;
+        private bool  _forecastValid;
+        private DateTime _lastForecastFetch = DateTime.MinValue;
+        private volatile bool _forecastFetching;
+
         public MissionMapPointController(PluginHost host)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
@@ -138,6 +145,53 @@ namespace MissionWizardPlugin
             }
 
             var anchor = ResolveWindAnchorPoint();
+            var hasAutopilot = TryReadWindFromAutopilot(out var apDir, out var apSpeed) && apSpeed > 0.1f;
+
+            if (hasAutopilot)
+                DrawWindArrow(anchor, apDir, apSpeed,
+                    "АВТОПІЛОТ", WindColorAutopilot,
+                    GMarkerGoogleType.green_dot, GMarkerGoogleType.green_small);
+
+            if (_forecastValid && _forecastSpeed > 0.1f)
+            {
+                PointLatLng forecastAnchor;
+                if (hasAutopilot)
+                {
+                    var off = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, (_forecastDir + 90.0) % 360.0, 250.0);
+                    forecastAnchor = new PointLatLng(off.lat, off.lon);
+                }
+                else
+                {
+                    forecastAnchor = anchor;
+                }
+                DrawWindArrow(forecastAnchor, _forecastDir, _forecastSpeed,
+                    "ПРОГНОЗ", WindColorForecast,
+                    GMarkerGoogleType.lightblue_dot, GMarkerGoogleType.blue_small);
+            }
+
+
+        private void DrawWindArrow(
+            PointLatLng anchor, float fromDeg, float speedMps,
+            string label, Color color,
+            GMarkerGoogleType tailType, GMarkerGoogleType headType)
+        {
+            var arrowLen = Math.Min(1400.0, 350.0 + speedMps * 50.0);
+            var tail = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, fromDeg, arrowLen);
+            var head = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, (fromDeg + 180.0) % 360.0, arrowLen);
+
+            overlay.Routes.Add(new GMapRoute(new List<PointLatLng>
+            {
+                new PointLatLng(tail.lat, tail.lon),
+                new PointLatLng(head.lat, head.lon)
+            }, "Wind_" + label) { Stroke = new Pen(color, 2.5f) });
+
+            overlay.Markers.Add(CreateMarker(tail.lat, tail.lon,
+                string.Format(CultureInfo.InvariantCulture,
+                    "{0}: з {1:F0}° {2:F1} м/с", label, fromDeg, speedMps), tailType));
+            overlay.Markers.Add(CreateMarker(head.lat, head.lon,
+                WindArrow((fromDeg + 180.0f) % 360.0f) + " " + label, headType));
+        }
+            var anchor = ResolveWindAnchorPoint();
             var fromPoint = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, windFromDeg, 500.0);
             var toPoint   = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, (windFromDeg + 180.0) % 360.0, 500.0);
 
@@ -162,10 +216,61 @@ namespace MissionWizardPlugin
                 "↓ КУДИ ДУЄ ВІТЕР",
                 GMarkerGoogleType.blue_small));
         }
+            private void AddWindVisualization()
+            {
+                var anchor = ResolveWindAnchorPoint();
+                var hasAutopilot = TryReadWindFromAutopilot(out var apDir, out var apSpeed) && apSpeed > 0.1f;
+
+                if (hasAutopilot)
+                    DrawWindArrow(anchor, apDir, apSpeed,
+                        "АВТОПІЛОТ", WindColorAutopilot,
+                        GMarkerGoogleType.green_dot, GMarkerGoogleType.green_small);
+
+                if (_forecastValid && _forecastSpeed > 0.1f)
+                {
+                    PointLatLng forecastAnchor;
+                    if (hasAutopilot)
+                    {
+                        var off = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, (_forecastDir + 90.0) % 360.0, 250.0);
+                        forecastAnchor = new PointLatLng(off.lat, off.lon);
+                    }
+                    else
+                    {
+                        forecastAnchor = anchor;
+                    }
+                    DrawWindArrow(forecastAnchor, _forecastDir, _forecastSpeed,
+                        "ПРОГНОЗ", WindColorForecast,
+                        GMarkerGoogleType.lightblue_dot, GMarkerGoogleType.blue_small);
+                }
+            }
+
+            private void DrawWindArrow(
+                PointLatLng anchor, float fromDeg, float speedMps,
+                string label, Color color,
+                GMarkerGoogleType tailType, GMarkerGoogleType headType)
+            {
+                var arrowLen = Math.Min(1400.0, 350.0 + speedMps * 50.0);
+                var tail = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, fromDeg, arrowLen);
+                var head = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, (fromDeg + 180.0) % 360.0, arrowLen);
+
+                overlay.Routes.Add(new GMapRoute(new List<PointLatLng>
+                {
+                    new PointLatLng(tail.lat, tail.lon),
+                    new PointLatLng(head.lat, head.lon)
+                }, "Wind_" + label) { Stroke = new Pen(color, 2.5f) });
+
+                overlay.Markers.Add(CreateMarker(tail.lat, tail.lon,
+                    string.Format(CultureInfo.InvariantCulture,
+                        "{0}: з {1:F0}° {2:F1} м/с", label, fromDeg, speedMps), tailType));
+                overlay.Markers.Add(CreateMarker(head.lat, head.lon,
+                    WindArrow((fromDeg + 180.0f) % 360.0f) + " " + label, headType));
+            }
 
         private void UpdateWindIndicator()
         {
-            if (windLabel == null || windLabel.IsDisposed) return;
+              ScheduleForecastUpdate();
+
+              if (windLabel == null || windLabel.IsDisposed) return;
 
             TryGetCurrentWind(out var dir, out var speed, out var source);
 
@@ -202,7 +307,12 @@ namespace MissionWizardPlugin
                 var markers = new List<GMapMarker>(overlay.Markers);
                 foreach (var m in markers)
                     if (m.ToolTipText != null &&
-                        (m.ToolTipText.StartsWith("ВІТЕР") || m.ToolTipText.StartsWith("↓")))
+                            (m.ToolTipText.StartsWith("АВТОПІЛОТ") || m.ToolTipText.StartsWith("ПРОГНОЗ") ||
+                             m.ToolTipText.StartsWith("ВІТЕР") || m.ToolTipText.StartsWith("↓") ||
+                             m.ToolTipText.StartsWith("↑") || m.ToolTipText.StartsWith("→") ||
+                             m.ToolTipText.StartsWith("←") || m.ToolTipText.StartsWith("↗") ||
+                             m.ToolTipText.StartsWith("↘") || m.ToolTipText.StartsWith("↙") ||
+                             m.ToolTipText.StartsWith("↖")))
                         overlay.Markers.Remove(m);
                 AddWindVisualization();
                 map.Refresh();
@@ -221,20 +331,41 @@ namespace MissionWizardPlugin
         private void TryGetCurrentWind(out float dir, out float speed, out string source)
         {
             dir = 0; speed = 0; source = "Немає даних";
-            if (TryReadWindFromAutopilot(out dir, out speed))
+            if (TryReadWindFromAutopilot(out dir, out speed) && speed > 0.1f)
             {
                 source = "Автопілот";
                 return;
             }
-            // Fallback: try Open-Meteo quickly (only when anchor point known)
-            if (MissionPointsStore.HasDelivery || MissionPointsStore.HasStart)
+            // Use cached forecast — never block UI thread
+            if (_forecastValid && _forecastSpeed > 0.1f)
             {
-                var anchor = ResolveWindAnchorPoint();
-                if (TryReadWindFromForecastSync(anchor.Lat, anchor.Lng, out dir, out speed))
-                {
-                    source = "Open-Meteo";
-                }
+                dir = _forecastDir; speed = _forecastSpeed; source = "Open-Meteo";
             }
+        }
+
+        // Fires a background Task to refresh forecast cache (at most once per 2 min).
+        private void ScheduleForecastUpdate()
+        {
+            if (_forecastFetching) return;
+            if ((DateTime.UtcNow - _lastForecastFetch).TotalSeconds < 120) return;
+            if (!MissionPointsStore.HasDelivery && !MissionPointsStore.HasStart) return;
+
+            _forecastFetching = true;
+            var anchor = ResolveWindAnchorPoint();
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    if (TryReadWindFromForecastSync(anchor.Lat, anchor.Lng, out var d, out var s))
+                    {
+                        _forecastDir   = d;
+                        _forecastSpeed = s;
+                        _forecastValid = true;
+                        _lastForecastFetch = DateTime.UtcNow;
+                    }
+                }
+                finally { _forecastFetching = false; }
+            });
         }
 
         private static bool TryReadWindFromForecastSync(double lat, double lon, out float dir, out float speed)
@@ -422,6 +553,8 @@ namespace MissionWizardPlugin
                 }
 
                 PointLatLng p;
+                    ScheduleForecastUpdate();
+
                 try
                 {
                     p = map.FromLocalToLatLng(e.X, e.Y);
@@ -459,7 +592,12 @@ namespace MissionWizardPlugin
 
                 if (pickStep == 0)
                 {
-                    MissionPointsStore.SetStart(p.Lat, p.Lng);
+                                (m.ToolTipText.StartsWith("АВТОПІЛОТ") || m.ToolTipText.StartsWith("ПРОГНОЗ") ||
+                                 m.ToolTipText.StartsWith("ВІТЕР") || m.ToolTipText.StartsWith("↓") ||
+                                 m.ToolTipText.StartsWith("↑") || m.ToolTipText.StartsWith("→") ||
+                                 m.ToolTipText.StartsWith("←") || m.ToolTipText.StartsWith("↗") ||
+                                 m.ToolTipText.StartsWith("↘") || m.ToolTipText.StartsWith("↙") ||
+                                 m.ToolTipText.StartsWith("↖")))
                     pickStep = 1;
                     return;
                 }
