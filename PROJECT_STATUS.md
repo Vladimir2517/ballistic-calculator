@@ -20,6 +20,8 @@
 - Presets for small arms, sniper, and mortar rounds.
 - Wind correction table and angular conversion helpers.
 - GitHub repo bootstrapped and default branch migrated to `main`.
+- User Guides documentation hub and step-by-step pages added.
+- GitHub Pages auto-publish workflow for documentation added.
 
 ## Rules for new changes
 - Any new task must be reflected in this file before coding.

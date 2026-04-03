@@ -2,11 +2,11 @@
 
 ## Где смотреть текущий этап
 
-- [PROJECT_STATUS.md](../../../PROJECT_STATUS.md)
+- [PROJECT_STATUS.md](https://github.com/Vladimir2517/ballistic-calculator/blob/main/PROJECT_STATUS.md)
 
 ## Где смотреть историю изменений
 
-- [CHANGELOG.md](../../../CHANGELOG.md)
+- [CHANGELOG.md](https://github.com/Vladimir2517/ballistic-calculator/blob/main/CHANGELOG.md)
 
 ## Базовый workflow
 

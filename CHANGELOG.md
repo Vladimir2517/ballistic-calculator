@@ -8,6 +8,8 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Governance files for process visibility (`CONTRIBUTING.md`, `PROJECT_STATUS.md`).
 - GitHub templates for PR and Issues.
 - CI workflow with syntax and CLI smoke checks.
+- GitHub Pages documentation pipeline with MkDocs (`docs-pages.yml`).
+- Documentation site config (`mkdocs.yml`) and docs dependencies (`docs-requirements.txt`).
 
 ## [0.1.0] - 2026-04-03
 ### Added

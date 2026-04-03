@@ -5,6 +5,7 @@
 ## Документація
 
 - User Guides (стиль hub + крокові інструкції): `docs/user-guides/ballistic-calculator-user-guides/README.md`
+- GitHub Pages Docs: `https://vladimir2517.github.io/ballistic-calculator/`
 
 ## Можливості
 

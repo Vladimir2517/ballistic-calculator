@@ -15,9 +15,9 @@
 
 ## Additional Links
 
-- [Главная страница проекта](../../../README.md)
-- [Журнал изменений](../../../CHANGELOG.md)
-- [Статус проекта](../../../PROJECT_STATUS.md)
-- [Правила участия](../../../CONTRIBUTING.md)
+- [Главная страница проекта](https://github.com/Vladimir2517/ballistic-calculator/blob/main/README.md)
+- [Журнал изменений](https://github.com/Vladimir2517/ballistic-calculator/blob/main/CHANGELOG.md)
+- [Статус проекта](https://github.com/Vladimir2517/ballistic-calculator/blob/main/PROJECT_STATUS.md)
+- [Правила участия](https://github.com/Vladimir2517/ballistic-calculator/blob/main/CONTRIBUTING.md)
 
 Last updated: 2026-04-03

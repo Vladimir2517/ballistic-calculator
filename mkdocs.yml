@@ -1,0 +1,26 @@
+site_name: Ballistic Calculator Docs
+site_description: User guides for ballistic-calculator
+site_url: https://vladimir2517.github.io/ballistic-calculator/
+repo_url: https://github.com/Vladimir2517/ballistic-calculator
+repo_name: Vladimir2517/ballistic-calculator
+
+theme:
+  name: mkdocs
+
+markdown_extensions:
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - User Guides:
+      - Hub: user-guides/ballistic-calculator-user-guides/README.md
+      - Installation and First Run: user-guides/ballistic-calculator-user-guides/installation-and-first-run.md
+      - First Range Card: user-guides/ballistic-calculator-user-guides/first-range-card.md
+      - Atmosphere and Shot Conditions: user-guides/ballistic-calculator-user-guides/atmosphere-and-shot-conditions.md
+      - Wind Corrections: user-guides/ballistic-calculator-user-guides/wind-corrections.md
+      - Custom Ammunition: user-guides/ballistic-calculator-user-guides/custom-ammunition.md
+      - Trajectory Analysis: user-guides/ballistic-calculator-user-guides/trajectory-analysis.md
+      - Troubleshooting: user-guides/ballistic-calculator-user-guides/troubleshooting.md
+      - Project Process: user-guides/ballistic-calculator-user-guides/project-process.md
