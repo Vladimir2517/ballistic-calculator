@@ -11,7 +11,6 @@ namespace MissionWizardPlugin
     {
         private const double EarthRadiusMeters = 6378137.0;
 
-        // MAVLink command ids
         private const int CmdNavTakeoff = 22;
         private const int CmdNavWaypoint = 16;
         private const int CmdDoChangeSpeed = 178;
@@ -25,7 +24,7 @@ namespace MissionWizardPlugin
         {
             if (input.LaneSpacingMeters <= 0)
             {
-                throw new InvalidOperationException("Крок між проходами має бути > 0");
+                throw new InvalidOperationException("Крок між проходами має бути більшим за 0");
             }
 
             var mission = new List<MissionItem>();
@@ -39,8 +38,8 @@ namespace MissionWizardPlugin
                 Lat = input.HomeLat,
                 Lon = input.HomeLon,
                 Alt = input.TakeoffAltMeters,
-                Param1 = 0,
-                Param4 = input.YawDegrees
+                Param1 = input.TakeoffPitchDegrees,
+                Param4 = input.WindSpeedMps > 0.1f ? input.WindDirectionFromDeg : input.YawDegrees
             });
 
             mission.Add(new MissionItem
@@ -67,7 +66,7 @@ namespace MissionWizardPlugin
                 });
             }
 
-            if (!(input.UseDeliveryTarget && input.DeliveryOnlyMission))
+            if (!(input.UseDeliveryTarget && input.DeliveryOnlyMission) && !input.UsePointRoute)
             {
                 var waypoints = BuildLawnmowerPattern(
                     input.AreaCenterLat,
@@ -93,20 +92,27 @@ namespace MissionWizardPlugin
 
             if (input.UseDeliveryTarget)
             {
-                var approach = BuildApproachPoint(
-                    input.HomeLat,
-                    input.HomeLon,
-                    input.DeliveryTargetLat,
-                    input.DeliveryTargetLon,
-                    input.DeliveryRunInMeters);
+                var deliveryAlt = input.DeliveryTargetRelativeAltMeters + input.DropHeightAboveTargetMeters;
+                var deliveryApproach = input.WindSpeedMps > 0.1f
+                    ? BuildApproachPointAgainstWind(
+                        input.DeliveryTargetLat,
+                        input.DeliveryTargetLon,
+                        input.WindDirectionFromDeg,
+                        input.DeliveryRunInMeters)
+                    : BuildApproachPoint(
+                        input.HomeLat,
+                        input.HomeLon,
+                        input.DeliveryTargetLat,
+                        input.DeliveryTargetLon,
+                        input.DeliveryRunInMeters);
 
                 mission.Add(new MissionItem
                 {
                     Seq = seq++,
                     Command = CmdNavWaypoint,
-                    Lat = approach.lat,
-                    Lon = approach.lon,
-                    Alt = input.CruiseAltMeters
+                    Lat = deliveryApproach.lat,
+                    Lon = deliveryApproach.lon,
+                    Alt = deliveryAlt
                 });
 
                 mission.Add(new MissionItem
@@ -115,7 +121,7 @@ namespace MissionWizardPlugin
                     Command = CmdNavWaypoint,
                     Lat = input.DeliveryTargetLat,
                     Lon = input.DeliveryTargetLon,
-                    Alt = input.CruiseAltMeters
+                    Alt = deliveryAlt
                 });
 
                 if (input.AddPayloadRelease)
@@ -140,7 +146,7 @@ namespace MissionWizardPlugin
                             Param1 = input.PayloadReleaseDelaySeconds,
                             Lat = input.DeliveryTargetLat,
                             Lon = input.DeliveryTargetLon,
-                            Alt = input.CruiseAltMeters
+                            Alt = deliveryAlt
                         });
                     }
                 }
@@ -152,17 +158,31 @@ namespace MissionWizardPlugin
                 {
                     throw new InvalidOperationException("Точку доставки не встановлено.");
                 }
+
                 if (!input.HasLandingPoint)
                 {
                     throw new InvalidOperationException("Точку посадки не встановлено.");
                 }
 
+                var landingApproach = input.WindSpeedMps > 0.1f
+                    ? BuildApproachPointAgainstWind(
+                        input.LandingLat,
+                        input.LandingLon,
+                        input.WindDirectionFromDeg,
+                        input.LandingRunInMeters)
+                    : BuildApproachPoint(
+                        input.DeliveryTargetLat,
+                        input.DeliveryTargetLon,
+                        input.LandingLat,
+                        input.LandingLon,
+                        input.LandingRunInMeters);
+
                 mission.Add(new MissionItem
                 {
                     Seq = seq++,
                     Command = CmdNavWaypoint,
-                    Lat = input.LandingLat,
-                    Lon = input.LandingLon,
+                    Lat = landingApproach.lat,
+                    Lon = landingApproach.lon,
                     Alt = input.CruiseAltMeters
                 });
 
@@ -172,7 +192,7 @@ namespace MissionWizardPlugin
                     Command = CmdNavLand,
                     Lat = input.LandingLat,
                     Lon = input.LandingLon,
-                    Alt = 0
+                    Alt = input.LandingRelativeAltMeters
                 });
 
                 return mission;
@@ -308,7 +328,18 @@ namespace MissionWizardPlugin
             var x = Math.Cos(lat1) * Math.Sin(lat2) - Math.Sin(lat1) * Math.Cos(lat2) * Math.Cos(dLon);
             var bearing = Math.Atan2(y, x);
 
-            // Move backwards from target by run-in distance.
+            var north = -Math.Cos(bearing) * runInMeters;
+            var east = -Math.Sin(bearing) * runInMeters;
+            return OffsetLatLon(targetLat, targetLon, east, north);
+        }
+
+        private static (double lat, double lon) BuildApproachPointAgainstWind(
+            double targetLat,
+            double targetLon,
+            float windFromDeg,
+            float runInMeters)
+        {
+            var bearing = DegreesToRadians(windFromDeg);
             var north = -Math.Cos(bearing) * runInMeters;
             var east = -Math.Sin(bearing) * runInMeters;
             return OffsetLatLon(targetLat, targetLon, east, north);

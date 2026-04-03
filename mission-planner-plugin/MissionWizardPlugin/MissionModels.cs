@@ -6,9 +6,10 @@ namespace MissionWizardPlugin
     {
         public double HomeLat { get; set; } = 50.4501;
         public double HomeLon { get; set; } = 30.5234;
-        public float TakeoffAltMeters { get; set; } = 50;
+        public float TakeoffAltMeters { get; set; } = 100;
+        public float TakeoffPitchDegrees { get; set; } = 12;
         public float CruiseAltMeters { get; set; } = 80;
-        public float RtlAltMeters { get; set; } = 60;
+        public float RtlAltMeters { get; set; } = 100;
 
         public double AreaCenterLat { get; set; } = 50.4501;
         public double AreaCenterLon { get; set; } = 30.5234;
@@ -31,11 +32,18 @@ namespace MissionWizardPlugin
         public bool DeliveryOnlyMission { get; set; } = true;
         public double DeliveryTargetLat { get; set; }
         public double DeliveryTargetLon { get; set; }
+        public float DeliveryTargetRelativeAltMeters { get; set; } = 0;
+        public float DropHeightAboveTargetMeters { get; set; } = 100;
         public float DeliveryRunInMeters { get; set; } = 120;
+        public float LandingRunInMeters { get; set; } = 180;
+        public float LandingRelativeAltMeters { get; set; } = 0;
         public bool AddPayloadRelease { get; set; } = true;
         public float PayloadReleaseDelaySeconds { get; set; } = 0;
         public int PayloadServoNumber { get; set; } = 9;
         public int PayloadServoPwm { get; set; } = 1900;
+        public float WindDirectionFromDeg { get; set; } = 0;
+        public float WindSpeedMps { get; set; } = 0;
+        public string WindSource { get; set; } = "Немає даних";
 
         public IList<MissionItem> BuildMissionItems()
         {

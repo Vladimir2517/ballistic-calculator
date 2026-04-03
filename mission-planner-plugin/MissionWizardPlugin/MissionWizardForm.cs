@@ -22,6 +22,7 @@ namespace MissionWizardPlugin
         private NumericUpDown homeLat;
         private NumericUpDown homeLon;
         private NumericUpDown takeoffAlt;
+        private NumericUpDown takeoffPitch;
         private NumericUpDown cruiseAlt;
         private NumericUpDown rtlAlt;
 
@@ -108,6 +109,8 @@ namespace MissionWizardPlugin
                 input.LandingLon = MissionPointsStore.LandingLon;
             }
 
+            MissionContextResolver.ApplyDefaults(host, input);
+
             BuildSummary();
         }
 
@@ -118,8 +121,9 @@ namespace MissionWizardPlugin
             homeLat = CreateNumeric(20, 40, -90, 90, input.HomeLat, 6, 0.000001M);
             homeLon = CreateNumeric(20, 90, -180, 180, input.HomeLon, 6, 0.000001M);
             takeoffAlt = CreateNumeric(20, 140, 5, 500, input.TakeoffAltMeters, 1, 1);
-            cruiseAlt = CreateNumeric(20, 190, 10, 1000, input.CruiseAltMeters, 1, 1);
-            rtlAlt = CreateNumeric(20, 240, 10, 300, input.RtlAltMeters, 1, 1);
+            takeoffPitch = CreateNumeric(20, 190, 1, 45, input.TakeoffPitchDegrees, 1, 1);
+            cruiseAlt = CreateNumeric(20, 240, 10, 1000, input.CruiseAltMeters, 1, 1);
+            rtlAlt = CreateNumeric(20, 290, 10, 500, input.RtlAltMeters, 1, 1);
 
             page.Controls.Add(CreateLabel("Широта старту", 20, 20));
             page.Controls.Add(homeLat);
@@ -127,9 +131,11 @@ namespace MissionWizardPlugin
             page.Controls.Add(homeLon);
             page.Controls.Add(CreateLabel("Висота зльоту (м)", 20, 120));
             page.Controls.Add(takeoffAlt);
-            page.Controls.Add(CreateLabel("Крейсерська висота (м)", 20, 170));
+            page.Controls.Add(CreateLabel("Кут зльоту (град)", 20, 170));
+            page.Controls.Add(takeoffPitch);
+            page.Controls.Add(CreateLabel("Крейсерська висота (м)", 20, 220));
             page.Controls.Add(cruiseAlt);
-            page.Controls.Add(CreateLabel("Висота RTL (м)", 20, 220));
+            page.Controls.Add(CreateLabel("Висота RTL (м)", 20, 270));
             page.Controls.Add(rtlAlt);
 
             return page;
@@ -297,6 +303,7 @@ namespace MissionWizardPlugin
             input.HomeLat = (double)homeLat.Value;
             input.HomeLon = (double)homeLon.Value;
             input.TakeoffAltMeters = (float)takeoffAlt.Value;
+            input.TakeoffPitchDegrees = (float)takeoffPitch.Value;
             input.CruiseAltMeters = (float)cruiseAlt.Value;
             input.RtlAltMeters = (float)rtlAlt.Value;
 
@@ -330,6 +337,7 @@ namespace MissionWizardPlugin
         private void BuildSummary()
         {
             PullUiValues();
+            MissionContextResolver.ApplyDefaults(host, input);
 
             var sb = new StringBuilder();
             sb.AppendLine("Підсумок майстра місії");
@@ -337,6 +345,7 @@ namespace MissionWizardPlugin
             sb.AppendLine();
             sb.AppendLine($"Старт:           {input.HomeLat:F6}, {input.HomeLon:F6}");
             sb.AppendLine($"Висота зльоту:   {input.TakeoffAltMeters:F0} м");
+            sb.AppendLine($"Кут зльоту:      {input.TakeoffPitchDegrees:F0} град");
             sb.AppendLine($"Крейсерська:     {input.CruiseAltMeters:F0} м");
             sb.AppendLine($"Висота RTL:      {input.RtlAltMeters:F0} м");
             sb.AppendLine();
@@ -356,6 +365,8 @@ namespace MissionWizardPlugin
             if (input.UseDeliveryTarget)
             {
                 sb.AppendLine($"Точка доставки:   {input.DeliveryTargetLat:F6}, {input.DeliveryTargetLon:F6}");
+                sb.AppendLine($"Відносна висота цілі: {input.DeliveryTargetRelativeAltMeters:F0} м");
+                sb.AppendLine($"Висота скидання:  {input.DeliveryTargetRelativeAltMeters + input.DropHeightAboveTargetMeters:F0} м");
                 sb.AppendLine($"Дистанц. заходу:  {input.DeliveryRunInMeters:F0} м");
                 sb.AppendLine($"Лише доставка:    {(input.DeliveryOnlyMission ? "ТАК" : "НІ")}");
                 sb.AppendLine($"Скидання вантажу: {(input.AddPayloadRelease ? "УВІМК" : "ВИМК")}");
@@ -368,7 +379,10 @@ namespace MissionWizardPlugin
             if (input.UsePointRoute)
             {
                 sb.AppendLine($"Точка посадки:    {input.LandingLat:F6}, {input.LandingLon:F6}");
+                sb.AppendLine($"Заход на посадку: {input.LandingRunInMeters:F0} м");
             }
+
+            sb.AppendLine($"Вітер:            {input.WindSpeedMps:F1} м/с з {input.WindDirectionFromDeg:F0}° ({input.WindSource})");
 
             try
             {
@@ -390,6 +404,7 @@ namespace MissionWizardPlugin
             try
             {
                 PullUiValues();
+                MissionContextResolver.ApplyDefaults(host, input);
                 var mission = input.BuildMissionItems();
 
                 var outputDir = Path.Combine(
