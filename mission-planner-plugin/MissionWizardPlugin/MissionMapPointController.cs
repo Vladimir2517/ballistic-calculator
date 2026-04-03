@@ -18,6 +18,7 @@ namespace MissionWizardPlugin
         private readonly GMapOverlay overlay;
         private readonly Button builderButton;
         private readonly Label windLabel;
+        private readonly Label weatherLabel;
         private readonly Timer windTimer;
 
         private bool autoMissionMode;
@@ -42,6 +43,15 @@ namespace MissionWizardPlugin
         private volatile bool _forecastFetching;
         private readonly string _windyApiKey;
 
+        // Weather cache
+        private float _weatherTemp;
+        private float _weatherHumidity;
+        private float _weatherCloudCover;
+        private string _weatherDescription = "Немає даних";
+        private DateTime _lastWeatherFetch = DateTime.MinValue;
+        private volatile bool _weatherFetching;
+
+
         public MissionMapPointController(PluginHost host)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
@@ -55,16 +65,17 @@ namespace MissionWizardPlugin
             builderButton.Click += OnBuilderButtonClick;
 
             windLabel = CreateWindLabel(map.Parent, builderButton);
+            weatherLabel = CreateWeatherLabel(map.Parent, windLabel);
 
             windTimer = new Timer { Interval = 3000 };
-            windTimer.Tick += (_, __) => UpdateWindIndicator();
+            windTimer.Tick += (_, __) => UpdateIndicators();
             windTimer.Start();
 
             map.MouseClick += OnMapMouseClick;
             MissionPointsStore.PointsChanged += OnPointsChanged;
 
             RefreshMarkers();
-            UpdateWindIndicator();
+            UpdateIndicators();
         }
 
         public void Dispose()
@@ -81,6 +92,14 @@ namespace MissionWizardPlugin
                 if (parent != null && parent.Controls.Contains(windLabel))
                     parent.Controls.Remove(windLabel);
                 windLabel.Dispose();
+            }
+
+            if (weatherLabel != null)
+            {
+                var parent = weatherLabel.Parent;
+                if (parent != null && parent.Controls.Contains(weatherLabel))
+                    parent.Controls.Remove(weatherLabel);
+                weatherLabel.Dispose();
             }
 
             if (builderButton != null)
@@ -160,9 +179,10 @@ namespace MissionWizardPlugin
                 WindArrow((fromDeg + 180.0f) % 360.0f) + " " + label, headType));
         }
 
-        private void UpdateWindIndicator()
+        private void UpdateIndicators()
         {
             ScheduleForecastUpdate();
+            ScheduleWeatherUpdate();
 
             if (windLabel == null || windLabel.IsDisposed) return;
 
@@ -221,6 +241,25 @@ namespace MissionWizardPlugin
                     update();
             }
             catch { }
+
+            // Обновляем прогноз погоды
+            if (weatherLabel != null && !weatherLabel.IsDisposed)
+            {
+                var weatherText = string.Format("🌡️ {0:F0}°C | 💧 {1:F0}% | ☁️ {2:F0}%", _weatherTemp, _weatherHumidity, _weatherCloudCover);
+                Action updateWeather = () =>
+                {
+                    if (weatherLabel.IsDisposed) return;
+                    weatherLabel.Text = weatherText;
+                };
+                try
+                {
+                    if (weatherLabel.InvokeRequired)
+                        weatherLabel.BeginInvoke(updateWeather);
+                    else
+                        updateWeather();
+                }
+                catch { }
+            }
         }
 
         private void TryGetCurrentWind(out float dir, out float speed, out string source)
@@ -519,6 +558,85 @@ namespace MissionWizardPlugin
         public void ActivateBuilderMode()
         {
             builderButton?.PerformClick();
+        }
+
+        private void ScheduleWeatherUpdate()
+        {
+            if (_weatherFetching) return;
+            const int updateSeconds = 300; // Обновляем каждые 5 минут
+            if ((DateTime.UtcNow - _lastWeatherFetch).TotalSeconds < updateSeconds) return;
+
+            _weatherFetching = true;
+            var anchor = ResolveWindAnchorPoint();
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    TryReadWeatherFromForecastSync(anchor.Lat, anchor.Lng, out var temp, out var humidity, out var cloudCover);
+                    _weatherTemp = temp;
+                    _weatherHumidity = humidity;
+                    _weatherCloudCover = cloudCover;
+                }
+                finally
+                {
+                    _lastWeatherFetch = DateTime.UtcNow;
+                    _weatherFetching = false;
+                }
+            });
+        }
+
+        private static bool TryReadWeatherFromForecastSync(double lat, double lon, out float temp, out float humidity, out float cloudCover)
+        {
+            temp = 0; humidity = 0; cloudCover = 0;
+            try
+            {
+                System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+                var url = string.Format(CultureInfo.InvariantCulture,
+                    "https://api.open-meteo.com/v1/forecast?latitude={0}&longitude={1}&current=temperature_2m,relative_humidity_2m,cloud_cover&temperature_unit=celsius&wind_speed_unit=ms", lat, lon);
+                var req = System.Net.WebRequest.Create(url);
+                req.Timeout = 5000;
+                req.Headers["User-Agent"] = "MissionWizardPlugin/1.0";
+
+                using (var resp = req.GetResponse())
+                using (var sr = new System.IO.StreamReader(resp.GetResponseStream()))
+                {
+                    var json = sr.ReadToEnd();
+                    var tempMatch = System.Text.RegularExpressions.Regex.Match(json, @"""temperature_2m""\s*:\s*\[?(?<v>-?[0-9]+(?:\.[0-9]+)?)");
+                    var humidityMatch = System.Text.RegularExpressions.Regex.Match(json, @"""relative_humidity_2m""\s*:\s*\[?(?<v>-?[0-9]+(?:\.[0-9]+)?)");
+                    var cloudMatch = System.Text.RegularExpressions.Regex.Match(json, @"""cloud_cover""\s*:\s*\[?(?<v>-?[0-9]+(?:\.[0-9]+)?)");
+
+                    if (tempMatch.Success)
+                        temp = float.Parse(tempMatch.Groups["v"].Value, CultureInfo.InvariantCulture);
+                    if (humidityMatch.Success)
+                        humidity = float.Parse(humidityMatch.Groups["v"].Value, CultureInfo.InvariantCulture);
+                    if (cloudMatch.Success)
+                        cloudCover = float.Parse(cloudMatch.Groups["v"].Value, CultureInfo.InvariantCulture);
+
+                    return tempMatch.Success;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static Label CreateWeatherLabel(Control parent, Label windLabel)
+        {
+            var lbl = new Label
+            {
+                Name = "WeatherLabel",
+                BackColor = Color.Transparent,
+                ForeColor = Color.FromArgb(100, 150, 200),
+                Font = new Font("Consolas", 8f, FontStyle.Regular),
+                Text = "🌡️ -- °C | 💧 -- % | ☁️ -- %",
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+                Left = Math.Max(4, parent.Width - 204),
+                Top = windLabel.Top - 22
+            };
+            parent.Controls.Add(lbl);
+            lbl.BringToFront();
+            return lbl;
         }
 
         private static GMapMarker CreateMarker(double lat, double lon, string label, GMarkerGoogleType type)
