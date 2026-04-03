@@ -52,6 +52,11 @@ namespace MissionWizardPlugin
             {
                 input.LandingRunInMeters = 180;
             }
+
+            if (input.LandingGlideSlopeDeg <= 0)
+            {
+                input.LandingGlideSlopeDeg = 1.8f;
+            }
         }
 
         private static void ApplyAutopilotDefaults(PluginHost host, MissionWizardInput input)

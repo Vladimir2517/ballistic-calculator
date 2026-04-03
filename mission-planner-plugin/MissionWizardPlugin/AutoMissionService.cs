@@ -34,7 +34,7 @@ namespace MissionWizardPlugin
                     UseDeliveryTarget = true,
                     HasDeliveryPoint = true,
                     DeliveryOnlyMission = true,
-                    UsePointRoute = false,
+                    UsePointRoute = true,
                     AddPayloadRelease = true
                 };
 
@@ -78,6 +78,22 @@ namespace MissionWizardPlugin
                     }
                 }
 
+                // 2.1 Auto-landing setup: use landing point from map, otherwise return to HOME via landing box.
+                if (MissionPointsStore.HasLanding)
+                {
+                    input.LandingLat = MissionPointsStore.LandingLat;
+                    input.LandingLon = MissionPointsStore.LandingLon;
+                }
+                else
+                {
+                    input.LandingLat = input.HomeLat;
+                    input.LandingLon = input.HomeLon;
+                }
+
+                input.HasLandingPoint = true;
+                input.LandingRunInMeters = Math.Max(input.LandingRunInMeters, 1000f);
+                input.LandingGlideSlopeDeg = 1.8f;
+
                 // 3. Build and load mission
                 var mission = MissionBuilder.Build(input);
                 var outputDir = Path.Combine(
@@ -97,6 +113,7 @@ namespace MissionWizardPlugin
                     $"Висота:       {input.DropHeightAboveTargetMeters:F0} м\n" +
                     $"{relOffset}\n" +
                     $"Вітер:        {input.WindSpeedMps:F1} м/с з {input.WindDirectionFromDeg:F0}° ({input.WindSource})\n" +
+                    $"Посадка:      коробка, глісада {input.LandingGlideSlopeDeg:F1}°\n" +
                     $"Швидкість:    {input.SpeedMetersPerSecond:F0} м/с\n" +
                     $"Команд у місії: {mission.Count}\n\n" +
                     "Місію завантажено у Flight Plan.",

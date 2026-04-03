@@ -39,6 +39,7 @@ namespace MissionWizardPlugin
         // Відносна дистанція сброса з таблиці бомбометання (метри). 0 = не застосовується.
         public float BombReleaseOffsetMeters { get; set; } = 0;
         public float LandingRunInMeters { get; set; } = 180;
+        public float LandingGlideSlopeDeg { get; set; } = 1.8f;
         public float LandingRelativeAltMeters { get; set; } = 0;
         public bool AddPayloadRelease { get; set; } = true;
         public float PayloadReleaseDelaySeconds { get; set; } = 0;

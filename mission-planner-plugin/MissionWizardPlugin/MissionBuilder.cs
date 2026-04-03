@@ -208,7 +208,9 @@ namespace MissionWizardPlugin
                         input.LandingLat,
                         input.LandingLon,
                         input.WindDirectionFromDeg,
-                        input.LandingRunInMeters);
+                        input.LandingRunInMeters,
+                        input.LandingRelativeAltMeters,
+                        input.LandingGlideSlopeDeg);
 
                     foreach (var wp in box)
                     {
@@ -218,7 +220,7 @@ namespace MissionWizardPlugin
                             Command = CmdNavWaypoint,
                             Lat = wp.lat,
                             Lon = wp.lon,
-                            Alt = input.CruiseAltMeters
+                            Alt = wp.alt
                         });
                     }
                 }
@@ -237,7 +239,10 @@ namespace MissionWizardPlugin
                         Command = CmdNavWaypoint,
                         Lat = landingApproach.lat,
                         Lon = landingApproach.lon,
-                        Alt = input.CruiseAltMeters
+                        Alt = ComputeGlideAltitude(
+                            input.LandingRelativeAltMeters,
+                            input.LandingRunInMeters,
+                            input.LandingGlideSlopeDeg)
                     });
                 }
 
@@ -400,11 +405,13 @@ namespace MissionWizardPlugin
             return OffsetLatLon(targetLat, targetLon, east, north);
         }
 
-        private static List<(double lat, double lon)> BuildLandingBoxAgainstWind(
+        private static List<(double lat, double lon, float alt)> BuildLandingBoxAgainstWind(
             double landingLat,
             double landingLon,
             float windFromDeg,
-            float finalRunInMeters)
+            float finalRunInMeters,
+            float landingAltMeters,
+            float glideSlopeDeg)
         {
             // Final heading is into wind (toward wind source).
             var runwayHeading = windFromDeg;
@@ -419,12 +426,23 @@ namespace MissionWizardPlugin
             var baseTurn = OffsetLatLonByBearing(finalStart.lat, finalStart.lon, crossRight, boxWidth);
             var downwindEntry = OffsetLatLonByBearing(baseTurn.lat, baseTurn.lon, runwayHeading, downwindLeg);
 
-            return new List<(double lat, double lon)>
+            var finalAlt = ComputeGlideAltitude(landingAltMeters, finalRunInMeters, glideSlopeDeg);
+            var baseAlt = ComputeGlideAltitude(landingAltMeters, finalRunInMeters + boxWidth, glideSlopeDeg);
+            var downwindAlt = ComputeGlideAltitude(landingAltMeters, finalRunInMeters + boxWidth + downwindLeg, glideSlopeDeg);
+
+            return new List<(double lat, double lon, float alt)>
             {
-                downwindEntry,
-                baseTurn,
-                finalStart
+                (downwindEntry.lat, downwindEntry.lon, downwindAlt),
+                (baseTurn.lat, baseTurn.lon, baseAlt),
+                (finalStart.lat, finalStart.lon, finalAlt)
             };
+        }
+
+        private static float ComputeGlideAltitude(float landingAltMeters, double distanceMeters, float glideSlopeDeg)
+        {
+            var clampedSlope = Math.Max(1.5, Math.Min(2.0, glideSlopeDeg));
+            var deltaAlt = Math.Tan(DegreesToRadians(clampedSlope)) * distanceMeters;
+            return (float)(landingAltMeters + Math.Max(0.0, deltaAlt));
         }
 
         private static (double lat, double lon) OffsetLatLonByBearing(
