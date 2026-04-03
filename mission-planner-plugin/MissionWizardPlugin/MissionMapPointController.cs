@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using GMap.NET;
@@ -41,6 +43,24 @@ namespace MissionWizardPlugin
         private DateTime _lastForecastFetch = DateTime.MinValue;
         private volatile bool _forecastFetching;
         private readonly string _windyApiKey;
+
+        private bool _hasAutoDropPreview;
+        private double _previewTargetLat;
+        private double _previewTargetLon;
+        private double _previewReleaseLat;
+        private double _previewReleaseLon;
+        private float _previewReleaseOffsetM;
+        private float _previewWindDir;
+        private float _previewWindSpeed;
+        private string _previewWindSource = "Немає даних";
+
+        private static readonly string[] XlsxSearchPaths =
+        {
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", "Таблица_бомбометания.xlsx"),
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Таблица_бомбометания.xlsx"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MissionWizard", "Таблица_бомбометания.xlsx"),
+            @"C:\Projects\ballistic-calculator\input\Таблица_бомбометания.xlsx"
+        };
 
 
         public MissionMapPointController(PluginHost host)
@@ -116,7 +136,40 @@ namespace MissionWizardPlugin
                 overlay.Markers.Add(CreateMarker(MissionPointsStore.LandingLat, MissionPointsStore.LandingLon, "ПОСАДКА", GMarkerGoogleType.blue_dot));
 
             AddWindVisualization();
+            AddAutoDropPreviewVisualization();
             map.Refresh();
+        }
+
+        private void AddAutoDropPreviewVisualization()
+        {
+            if (!_hasAutoDropPreview)
+                return;
+
+            overlay.Markers.Add(CreateMarker(
+                _previewTargetLat,
+                _previewTargetLon,
+                "ЦІЛЬ",
+                GMarkerGoogleType.red_dot));
+
+            var releaseLabel = string.Format(
+                CultureInfo.InvariantCulture,
+                "СКИД: {0:F0} м, вітер {1:F1} м/с з {2:F0}° [{3}]",
+                _previewReleaseOffsetM,
+                _previewWindSpeed,
+                _previewWindDir,
+                _previewWindSource);
+
+            overlay.Markers.Add(CreateMarker(
+                _previewReleaseLat,
+                _previewReleaseLon,
+                releaseLabel,
+                GMarkerGoogleType.orange_dot));
+
+            overlay.Routes.Add(new GMapRoute(new List<PointLatLng>
+            {
+                new PointLatLng(_previewReleaseLat, _previewReleaseLon),
+                new PointLatLng(_previewTargetLat, _previewTargetLon)
+            }, "DropPreview") { Stroke = new Pen(Color.FromArgb(230, 126, 34), 2f) });
         }
 
         private void AddWindVisualization()
@@ -213,6 +266,7 @@ namespace MissionWizardPlugin
                         overlay.Markers.Remove(m);
 
                 AddWindVisualization();
+                    AddAutoDropPreviewVisualization();
                 map.Refresh();
             };
 
@@ -437,6 +491,87 @@ namespace MissionWizardPlugin
             return (startLat + dLat * 180.0 / Math.PI, startLon + dLon * 180.0 / Math.PI);
         }
 
+        private static double ComputeBearingDegrees(double fromLat, double fromLon, double toLat, double toLon)
+        {
+            var phi1 = fromLat * Math.PI / 180.0;
+            var phi2 = toLat * Math.PI / 180.0;
+            var dLon = (toLon - fromLon) * Math.PI / 180.0;
+            var y = Math.Sin(dLon) * Math.Cos(phi2);
+            var x = Math.Cos(phi1) * Math.Sin(phi2) - Math.Sin(phi1) * Math.Cos(phi2) * Math.Cos(dLon);
+            var brng = Math.Atan2(y, x) * 180.0 / Math.PI;
+            if (brng < 0) brng += 360.0;
+            return brng;
+        }
+
+        private void UpdateAutoDropPreview(double targetLat, double targetLon)
+        {
+            var input = new MissionWizardInput
+            {
+                DeliveryTargetLat = targetLat,
+                DeliveryTargetLon = targetLon,
+                UseDeliveryTarget = true,
+                HasDeliveryPoint = true,
+                DeliveryOnlyMission = true,
+                AddPayloadRelease = true
+            };
+
+            MissionContextResolver.ApplyDefaults(host, input, resolveExternal: true);
+
+            var xlsxPath = XlsxSearchPaths.FirstOrDefault(File.Exists);
+            BombingTableSnapshot table = null;
+            if (xlsxPath != null && BombingTableXlsx.TryLoad(xlsxPath, out var loaded, out _))
+            {
+                table = loaded;
+            }
+
+            if (table != null)
+            {
+                if (table.WindDirFromDeg.HasValue)
+                {
+                    input.WindDirectionFromDeg = table.WindDirFromDeg.Value;
+                    input.WindSource = "XLSX";
+                }
+
+                if (table.WindSpeedMps.HasValue && table.WindSpeedMps.Value >= 0)
+                {
+                    input.WindSpeedMps = table.WindSpeedMps.Value;
+                }
+
+                var dropAlt = input.DropHeightAboveTargetMeters > 0
+                    ? input.DropHeightAboveTargetMeters
+                    : 100f;
+                var releaseOffset = table.GetReleaseDistance(dropAlt);
+                if (releaseOffset > 0)
+                {
+                    input.BombReleaseOffsetMeters = releaseOffset;
+                }
+            }
+
+            var inboundBearingDeg = input.WindSpeedMps > 0.1f
+                ? input.WindDirectionFromDeg
+                : ComputeBearingDegrees(input.HomeLat, input.HomeLon, targetLat, targetLon);
+
+            var releaseLat = targetLat;
+            var releaseLon = targetLon;
+            if (input.BombReleaseOffsetMeters > 0.5f)
+            {
+                var upwindBearing = (inboundBearingDeg + 180.0) % 360.0;
+                var rel = OffsetLatLonByBearing(targetLat, targetLon, upwindBearing, input.BombReleaseOffsetMeters);
+                releaseLat = rel.lat;
+                releaseLon = rel.lon;
+            }
+
+            _previewTargetLat = targetLat;
+            _previewTargetLon = targetLon;
+            _previewReleaseLat = releaseLat;
+            _previewReleaseLon = releaseLon;
+            _previewReleaseOffsetM = input.BombReleaseOffsetMeters;
+            _previewWindDir = input.WindDirectionFromDeg;
+            _previewWindSpeed = input.WindSpeedMps;
+            _previewWindSource = input.WindSource ?? "Немає даних";
+            _hasAutoDropPreview = true;
+        }
+
         private static Button CreateBuilderButton(Control parent)
         {
             var btn = new Button
@@ -476,6 +611,9 @@ namespace MissionWizardPlugin
 
                 if (autoMissionMode)
                 {
+                    UpdateAutoDropPreview(p.Lat, p.Lng);
+                    RefreshMarkers();
+
                     autoMissionMode = false;
                     builderButton.Text = "Балістика";
                     builderButton.BackColor = ButtonNormalColor;
