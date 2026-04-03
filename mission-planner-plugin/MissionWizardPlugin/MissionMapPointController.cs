@@ -125,7 +125,9 @@ namespace MissionWizardPlugin
             var hasAutopilot = TryReadWindFromAutopilot(out var apDir, out var apSpeed) && apSpeed > 0.1f;
 
             if (hasAutopilot)
+            {
                 DrawWindArrow(anchor, apDir, apSpeed, "АВТОПІЛОТ", WindColorAutopilot, GMarkerGoogleType.green_dot, GMarkerGoogleType.green_small);
+            }
 
             if (_forecastValid && _forecastSpeed > 0.1f)
             {
@@ -140,6 +142,11 @@ namespace MissionWizardPlugin
                     forecastAnchor = anchor;
                 }
                 DrawWindArrow(forecastAnchor, _forecastDir, _forecastSpeed, "ПРОГНОЗ", WindColorForecast, GMarkerGoogleType.lightblue_dot, GMarkerGoogleType.blue_small);
+            }
+            else if (!hasAutopilot && !_forecastValid)
+            {
+                // Demo arrow if no real wind data available
+                DrawWindArrow(anchor, 45.0f, 5.0f, "ТЕСТОВИЙ ВІТЕР", Color.FromArgb(100, 150, 200), GMarkerGoogleType.orange_dot, GMarkerGoogleType.yellow_small);
             }
         }
 
