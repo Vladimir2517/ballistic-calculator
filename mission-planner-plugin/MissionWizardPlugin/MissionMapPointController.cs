@@ -617,11 +617,7 @@ namespace MissionWizardPlugin
                     autoMissionMode = false;
                     builderButton.Text = "Балістика";
                     builderButton.BackColor = ButtonNormalColor;
-                    var uiTarget = host?.MainForm as Control;
-                    if (uiTarget != null && !uiTarget.IsDisposed)
-                        uiTarget.BeginInvoke(new Action(() => AutoMissionService.Execute(host, p.Lat, p.Lng)));
-                    else
-                        AutoMissionService.Execute(host, p.Lat, p.Lng);
+                    AutoMissionService.ExecuteAsync(host, p.Lat, p.Lng);
                     return;
                 }
 

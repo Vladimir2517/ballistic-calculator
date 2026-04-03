@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using MissionPlanner.Plugin;
 
@@ -8,6 +10,11 @@ namespace MissionWizardPlugin
 {
     internal static class AutoMissionService
     {
+        private static readonly object XlsxCacheLock = new object();
+        private static string cachedXlsxPath;
+        private static DateTime cachedXlsxWriteUtc = DateTime.MinValue;
+        private static BombingTableSnapshot cachedXlsx;
+
         private static readonly string[] XlsxSearchPaths =
         {
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", "Таблица_бомбометания.xlsx"),
@@ -23,6 +30,112 @@ namespace MissionWizardPlugin
         /// Всі параметри беруться з автопілоту, погоди та таблиці бомбометання.
         /// </summary>
         public static void Execute(PluginHost host, double targetLat, double targetLon)
+        {
+            ExecuteInternal(host, targetLat, targetLon, runAsync: false);
+        }
+
+        public static void ExecuteAsync(PluginHost host, double targetLat, double targetLon)
+        {
+            ExecuteInternal(host, targetLat, targetLon, runAsync: true);
+        }
+
+        private static void ExecuteInternal(PluginHost host, double targetLat, double targetLon, bool runAsync)
+        {
+            var uiTarget = host?.MainForm as Control;
+
+            Action beginBusy = () =>
+            {
+                if (uiTarget != null && !uiTarget.IsDisposed)
+                {
+                    uiTarget.Cursor = Cursors.WaitCursor;
+                }
+            };
+
+            Action endBusy = () =>
+            {
+                if (uiTarget != null && !uiTarget.IsDisposed)
+                {
+                    uiTarget.Cursor = Cursors.Default;
+                }
+            };
+
+            Action<Action> invokeUi = action =>
+            {
+                if (uiTarget != null && !uiTarget.IsDisposed)
+                {
+                    uiTarget.BeginInvoke(action);
+                }
+                else
+                {
+                    action();
+                }
+            };
+
+            invokeUi(beginBusy);
+
+            Action work = () =>
+            {
+                try
+                {
+                    var result = BuildMissionPayload(host, targetLat, targetLon);
+
+                    invokeUi(() =>
+                    {
+                        try
+                        {
+                            MissionPlannerIntegration.LoadWaypointsIntoFlightPlanner(host, result.FilePath);
+
+                            MessageBox.Show(
+                                $"Місію побудовано автоматично.\n\n" +
+                                $"Ціль:         {targetLat:F6}, {targetLon:F6}\n" +
+                                $"Висота:       {result.Input.DropHeightAboveTargetMeters:F0} м\n" +
+                                $"{result.RelOffsetText}\n" +
+                                $"Вітер:        {result.Input.WindSpeedMps:F1} м/с з {result.Input.WindDirectionFromDeg:F0}° ({result.Input.WindSource})\n" +
+                                $"Посадка:      коробка, глісада {result.Input.LandingGlideSlopeDeg:F1}°\n" +
+                                $"Швидкість:    {result.Input.SpeedMetersPerSecond:F0} м/с\n" +
+                                $"Команд у місії: {result.MissionCount}\n\n" +
+                                "Місію завантажено у Flight Plan.",
+                                "Автоматична місія",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
+                        }
+                        finally
+                        {
+                            endBusy();
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    invokeUi(() =>
+                    {
+                        try
+                        {
+                            MessageBox.Show(
+                                "Помилка побудови місії:\n" + ex.Message,
+                                "Автоматична місія",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Error);
+                        }
+                        finally
+                        {
+                            endBusy();
+                        }
+                    });
+                }
+            };
+
+            if (runAsync)
+            {
+                Task.Run(work);
+            }
+            else
+            {
+                work();
+            }
+        }
+
+        private static MissionBuildPayload BuildMissionPayload(PluginHost host, double targetLat, double targetLon)
         {
             try
             {
@@ -42,12 +155,8 @@ namespace MissionWizardPlugin
                 MissionContextResolver.ApplyDefaults(host, input, resolveExternal: true);
 
                 // 2. Override with bombing table if available
-                var xlsxPath = XlsxSearchPaths.FirstOrDefault(File.Exists);
                 BombingTableSnapshot table = null;
-                if (xlsxPath != null && BombingTableXlsx.TryLoad(xlsxPath, out var loaded, out _))
-                {
-                    table = loaded;
-                }
+                TryGetCachedBombingTable(out table);
 
                 if (table != null)
                 {
@@ -100,35 +209,66 @@ namespace MissionWizardPlugin
                     Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                     "MissionWizard");
                 var filePath = MissionBuilder.WriteQgcWpl(mission, outputDir);
-                MissionPlannerIntegration.LoadWaypointsIntoFlightPlanner(host, filePath);
 
                 // 4. Confirmation
                 var relOffset = input.BombReleaseOffsetMeters > 0
                     ? $"Відносна: {input.BombReleaseOffsetMeters:F0} м"
                     : "Пряме наведення (без відносу)";
 
-                MessageBox.Show(
-                    $"Місію побудовано автоматично.\n\n" +
-                    $"Ціль:         {targetLat:F6}, {targetLon:F6}\n" +
-                    $"Висота:       {input.DropHeightAboveTargetMeters:F0} м\n" +
-                    $"{relOffset}\n" +
-                    $"Вітер:        {input.WindSpeedMps:F1} м/с з {input.WindDirectionFromDeg:F0}° ({input.WindSource})\n" +
-                    $"Посадка:      коробка, глісада {input.LandingGlideSlopeDeg:F1}°\n" +
-                    $"Швидкість:    {input.SpeedMetersPerSecond:F0} м/с\n" +
-                    $"Команд у місії: {mission.Count}\n\n" +
-                    "Місію завантажено у Flight Plan.",
-                    "Автоматична місія",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                return new MissionBuildPayload
+                {
+                    Input = input,
+                    MissionCount = mission.Count,
+                    FilePath = filePath,
+                    RelOffsetText = relOffset
+                };
             }
-            catch (Exception ex)
+            catch
             {
-                MessageBox.Show(
-                    "Помилка побудови місії:\n" + ex.Message,
-                    "Автоматична місія",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                throw;
             }
+        }
+
+        private static bool TryGetCachedBombingTable(out BombingTableSnapshot snapshot)
+        {
+            snapshot = null;
+            var xlsxPath = XlsxSearchPaths.FirstOrDefault(File.Exists);
+            if (string.IsNullOrWhiteSpace(xlsxPath))
+            {
+                return false;
+            }
+
+            var writeUtc = File.GetLastWriteTimeUtc(xlsxPath);
+
+            lock (XlsxCacheLock)
+            {
+                if (cachedXlsx != null &&
+                    string.Equals(cachedXlsxPath, xlsxPath, StringComparison.OrdinalIgnoreCase) &&
+                    cachedXlsxWriteUtc == writeUtc)
+                {
+                    snapshot = cachedXlsx;
+                    return true;
+                }
+
+                if (BombingTableXlsx.TryLoad(xlsxPath, out var loaded, out _))
+                {
+                    cachedXlsxPath = xlsxPath;
+                    cachedXlsxWriteUtc = writeUtc;
+                    cachedXlsx = loaded;
+                    snapshot = cachedXlsx;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private sealed class MissionBuildPayload
+        {
+            public MissionWizardInput Input { get; set; }
+            public int MissionCount { get; set; }
+            public string FilePath { get; set; }
+            public string RelOffsetText { get; set; }
         }
     }
 }
