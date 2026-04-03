@@ -34,7 +34,7 @@ namespace MissionWizardPlugin
         public double DeliveryTargetLon { get; set; }
         public float DeliveryTargetRelativeAltMeters { get; set; } = 0;
         public float DropHeightAboveTargetMeters { get; set; } = 100;
-        public float DeliveryRunInMeters { get; set; } = 120;
+        public float DeliveryRunInMeters { get; set; } = 1000;
         public float PostDropEgressMeters { get; set; } = 1000;
         // Відносна дистанція сброса з таблиці бомбометання (метри). 0 = не застосовується.
         public float BombReleaseOffsetMeters { get; set; } = 0;

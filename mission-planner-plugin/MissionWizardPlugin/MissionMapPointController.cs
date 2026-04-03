@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.Windows.Forms;
 using GMap.NET;
 using GMap.NET.WindowsForms;
@@ -68,6 +70,7 @@ namespace MissionWizardPlugin
         public void RefreshMarkers()
         {
             overlay.Markers.Clear();
+            overlay.Routes.Clear();
 
             if (MissionPointsStore.HasStart)
             {
@@ -96,7 +99,110 @@ namespace MissionWizardPlugin
                     GMarkerGoogleType.blue_dot));
             }
 
+            AddWindVisualization();
+
             map.Refresh();
+        }
+
+        private void AddWindVisualization()
+        {
+            if (!TryReadWindFromAutopilot(out var windFromDeg, out var windSpeedMps) || windSpeedMps < 0.1f)
+            {
+                return;
+            }
+
+            var anchor = ResolveWindAnchorPoint();
+            var fromPoint = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, windFromDeg, 500.0);
+            var toPoint = OffsetLatLonByBearing(anchor.Lat, anchor.Lng, (windFromDeg + 180.0) % 360.0, 500.0);
+
+            var route = new GMapRoute(new List<PointLatLng>
+            {
+                new PointLatLng(fromPoint.lat, fromPoint.lon),
+                new PointLatLng(toPoint.lat, toPoint.lon)
+            }, "WindDirection")
+            {
+                Stroke = new Pen(Color.DeepSkyBlue, 2f)
+            };
+            overlay.Routes.Add(route);
+
+            overlay.Markers.Add(CreateMarker(
+                fromPoint.lat,
+                fromPoint.lon,
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "ВІТЕР З {0:F0}° ({1:F1} м/с)",
+                    windFromDeg,
+                    windSpeedMps),
+                GMarkerGoogleType.lightblue_dot));
+
+            overlay.Markers.Add(CreateMarker(
+                toPoint.lat,
+                toPoint.lon,
+                "НАПРЯМОК ВІТРУ",
+                GMarkerGoogleType.blue_small));
+        }
+
+        private PointLatLng ResolveWindAnchorPoint()
+        {
+            if (MissionPointsStore.HasDelivery)
+            {
+                return new PointLatLng(MissionPointsStore.DeliveryLat, MissionPointsStore.DeliveryLon);
+            }
+
+            if (MissionPointsStore.HasStart)
+            {
+                return new PointLatLng(MissionPointsStore.StartLat, MissionPointsStore.StartLon);
+            }
+
+            return map.Position;
+        }
+
+        private bool TryReadWindFromAutopilot(out float dir, out float speed)
+        {
+            dir = 0;
+            speed = 0;
+
+            try
+            {
+                var cs = host?.GetType().GetProperty("cs")?.GetValue(host, null);
+                if (cs == null)
+                {
+                    return false;
+                }
+
+                var dirObj = cs.GetType().GetProperty("wind_dir")?.GetValue(cs, null);
+                var speedObj = cs.GetType().GetProperty("wind_vel")?.GetValue(cs, null);
+                if (dirObj == null || speedObj == null)
+                {
+                    return false;
+                }
+
+                dir = Convert.ToSingle(dirObj, CultureInfo.InvariantCulture);
+                speed = Convert.ToSingle(speedObj, CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static (double lat, double lon) OffsetLatLonByBearing(
+            double startLat,
+            double startLon,
+            double bearingDeg,
+            double distanceMeters)
+        {
+            const double earthRadiusMeters = 6378137.0;
+            var bearing = bearingDeg * Math.PI / 180.0;
+            var north = Math.Cos(bearing) * distanceMeters;
+            var east = Math.Sin(bearing) * distanceMeters;
+
+            var dLat = north / earthRadiusMeters;
+            var dLon = east / (earthRadiusMeters * Math.Cos(startLat * Math.PI / 180.0));
+            var latOut = startLat + (dLat * 180.0 / Math.PI);
+            var lonOut = startLon + (dLon * 180.0 / Math.PI);
+            return (latOut, lonOut);
         }
 
         private static Button CreateBuilderButton(Control parent)

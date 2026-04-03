@@ -123,9 +123,9 @@ namespace MissionWizardPlugin
                     releaseLonD = input.DeliveryTargetLon;
                 }
 
-                // Approach point: RunIn meters upwind of release point
+                // Approach point: fixed run-in relative to TARGET (not release point)
                 var deliveryApproach = OffsetLatLonByBearing(
-                    releaseLatD, releaseLonD,
+                    input.DeliveryTargetLat, input.DeliveryTargetLon,
                     (inboundBearingDeg + 180.0) % 360.0,
                     input.DeliveryRunInMeters);
 
@@ -202,27 +202,44 @@ namespace MissionWizardPlugin
                     throw new InvalidOperationException("Точку посадки не встановлено.");
                 }
 
-                var landingApproach = input.WindSpeedMps > 0.1f
-                    ? BuildApproachPointAgainstWind(
+                if (input.WindSpeedMps > 0.1f)
+                {
+                    var box = BuildLandingBoxAgainstWind(
                         input.LandingLat,
                         input.LandingLon,
                         input.WindDirectionFromDeg,
-                        input.LandingRunInMeters)
-                    : BuildApproachPoint(
+                        input.LandingRunInMeters);
+
+                    foreach (var wp in box)
+                    {
+                        mission.Add(new MissionItem
+                        {
+                            Seq = seq++,
+                            Command = CmdNavWaypoint,
+                            Lat = wp.lat,
+                            Lon = wp.lon,
+                            Alt = input.CruiseAltMeters
+                        });
+                    }
+                }
+                else
+                {
+                    var landingApproach = BuildApproachPoint(
                         input.DeliveryTargetLat,
                         input.DeliveryTargetLon,
                         input.LandingLat,
                         input.LandingLon,
                         input.LandingRunInMeters);
 
-                mission.Add(new MissionItem
-                {
-                    Seq = seq++,
-                    Command = CmdNavWaypoint,
-                    Lat = landingApproach.lat,
-                    Lon = landingApproach.lon,
-                    Alt = input.CruiseAltMeters
-                });
+                    mission.Add(new MissionItem
+                    {
+                        Seq = seq++,
+                        Command = CmdNavWaypoint,
+                        Lat = landingApproach.lat,
+                        Lon = landingApproach.lon,
+                        Alt = input.CruiseAltMeters
+                    });
+                }
 
                 mission.Add(new MissionItem
                 {
@@ -381,6 +398,33 @@ namespace MissionWizardPlugin
             var north = -Math.Cos(bearing) * runInMeters;
             var east = -Math.Sin(bearing) * runInMeters;
             return OffsetLatLon(targetLat, targetLon, east, north);
+        }
+
+        private static List<(double lat, double lon)> BuildLandingBoxAgainstWind(
+            double landingLat,
+            double landingLon,
+            float windFromDeg,
+            float finalRunInMeters)
+        {
+            // Final heading is into wind (toward wind source).
+            var runwayHeading = windFromDeg;
+            var oppositeHeading = (runwayHeading + 180.0) % 360.0;
+            var crossRight = (runwayHeading + 90.0) % 360.0;
+
+            var finalStart = OffsetLatLonByBearing(landingLat, landingLon, oppositeHeading, finalRunInMeters);
+
+            var boxWidth = Math.Max(140.0, finalRunInMeters * 0.6);
+            var downwindLeg = Math.Max(300.0, finalRunInMeters * 1.1);
+
+            var baseTurn = OffsetLatLonByBearing(finalStart.lat, finalStart.lon, crossRight, boxWidth);
+            var downwindEntry = OffsetLatLonByBearing(baseTurn.lat, baseTurn.lon, runwayHeading, downwindLeg);
+
+            return new List<(double lat, double lon)>
+            {
+                downwindEntry,
+                baseTurn,
+                finalStart
+            };
         }
 
         private static (double lat, double lon) OffsetLatLonByBearing(

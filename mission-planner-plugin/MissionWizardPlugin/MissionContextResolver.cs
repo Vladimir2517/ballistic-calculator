@@ -45,7 +45,7 @@ namespace MissionWizardPlugin
 
             if (input.DeliveryRunInMeters <= 0)
             {
-                input.DeliveryRunInMeters = 120;
+                input.DeliveryRunInMeters = 1000;
             }
 
             if (input.LandingRunInMeters <= 0)

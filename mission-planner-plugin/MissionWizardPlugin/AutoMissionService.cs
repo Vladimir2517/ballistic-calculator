@@ -30,6 +30,7 @@ namespace MissionWizardPlugin
                 {
                     DeliveryTargetLat = targetLat,
                     DeliveryTargetLon = targetLon,
+                    DeliveryRunInMeters = 1000,
                     UseDeliveryTarget = true,
                     HasDeliveryPoint = true,
                     DeliveryOnlyMission = true,
