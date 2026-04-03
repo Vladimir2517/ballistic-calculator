@@ -10,18 +10,18 @@ namespace MissionWizardPlugin
         {
             if (host == null)
             {
-                throw new InvalidOperationException("Plugin host is not available.");
+                throw new InvalidOperationException("Хост плагіна недоступний.");
             }
 
             if (string.IsNullOrWhiteSpace(waypointFile))
             {
-                throw new ArgumentException("Waypoint file path is empty.", nameof(waypointFile));
+                throw new ArgumentException("Шлях до файлу маршрутних точок порожній.", nameof(waypointFile));
             }
 
             var mainForm = host.MainForm;
             if (mainForm == null)
             {
-                throw new InvalidOperationException("Mission Planner main form is not available.");
+                throw new InvalidOperationException("Головна форма Mission Planner недоступна.");
             }
 
             // Open Flight Planner tab for user context.
@@ -35,7 +35,7 @@ namespace MissionWizardPlugin
             var flightPlanner = flightPlannerField?.GetValue(mainForm);
             if (flightPlanner == null)
             {
-                throw new InvalidOperationException("FlightPlanner view is not available.");
+                throw new InvalidOperationException("Вкладка Flight Planner недоступна.");
             }
 
             var readMethod = flightPlanner.GetType().GetMethod("readQGC110wpfile",
@@ -46,7 +46,7 @@ namespace MissionWizardPlugin
 
             if (readMethod == null)
             {
-                throw new MissingMethodException("Could not find FlightPlanner.readQGC110wpfile(string,bool)");
+                throw new MissingMethodException("Не знайдено метод FlightPlanner.readQGC110wpfile(string,bool)");
             }
 
             // append=false replaces current mission list in Flight Plan.

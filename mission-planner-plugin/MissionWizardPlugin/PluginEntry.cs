@@ -14,7 +14,7 @@ namespace MissionWizardPlugin
         private ToolStripItemCollection menuOwnerItems;
         private MissionMapPointController mapController;
 
-        public override string Name => "Mission Wizard";
+        public override string Name => "Майстер місії";
         public override string Version => "0.1.0";
         public override string Author => "Vladimir2517";
 
@@ -27,19 +27,19 @@ namespace MissionWizardPlugin
         {
             try
             {
-                menuItem = new ToolStripMenuItem("Mission Wizard");
+                menuItem = new ToolStripMenuItem("Майстер місії");
                 menuItem.Click += OnMenuClick;
 
-                setStartItem = new ToolStripMenuItem("Set Start Point Here");
+                setStartItem = new ToolStripMenuItem("Встановити точку старту тут");
                 setStartItem.Click += OnSetStartClick;
 
-                setDeliveryItem = new ToolStripMenuItem("Set Delivery Point Here");
+                setDeliveryItem = new ToolStripMenuItem("Встановити точку доставки тут");
                 setDeliveryItem.Click += OnSetDeliveryClick;
 
-                setLandingItem = new ToolStripMenuItem("Set Landing Point Here");
+                setLandingItem = new ToolStripMenuItem("Встановити точку посадки тут");
                 setLandingItem.Click += OnSetLandingClick;
 
-                clearPointsItem = new ToolStripMenuItem("Clear Mission Points");
+                clearPointsItem = new ToolStripMenuItem("Очистити точки місії");
                 clearPointsItem.Click += OnClearPointsClick;
 
                 // Preferred placement: Flight Planner tab context menu.
@@ -54,7 +54,7 @@ namespace MissionWizardPlugin
                 }
                 else if (Host.FDMenuMap != null)
                 {
-                    // Fallback for older builds: Flight Data map context menu.
+                    // Запасний варіант для старіших збірок: контекстне меню карти Flight Data.
                     menuOwnerItems = Host.FDMenuMap.Items;
                     menuOwnerItems.Add(setStartItem);
                     menuOwnerItems.Add(setDeliveryItem);
@@ -193,8 +193,8 @@ namespace MissionWizardPlugin
             if (!TryGetMenuLatLon(out var lat, out var lon))
             {
                 MessageBox.Show(
-                    "Failed to read map coordinates.",
-                    "Mission Wizard",
+                    "Не вдалося прочитати координати з карти.",
+                    "Майстер місії",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return;
@@ -202,8 +202,8 @@ namespace MissionWizardPlugin
 
             MissionPointsStore.SetStart(lat, lon);
             mapController?.RefreshMarkers();
-            MessageBox.Show($"Start point set:\nLat: {lat:F6}\nLon: {lon:F6}",
-                "Mission Wizard", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show($"Точку старту встановлено:\nШирота: {lat:F6}\nДовгота: {lon:F6}",
+                "Майстер місії", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void OnSetDeliveryClick(object sender, EventArgs e)
@@ -211,8 +211,8 @@ namespace MissionWizardPlugin
             if (!TryGetMenuLatLon(out var lat, out var lon))
             {
                 MessageBox.Show(
-                    "Failed to read map coordinates.",
-                    "Mission Wizard",
+                    "Не вдалося прочитати координати з карти.",
+                    "Майстер місії",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return;
@@ -220,8 +220,8 @@ namespace MissionWizardPlugin
 
             MissionPointsStore.SetDelivery(lat, lon);
             mapController?.RefreshMarkers();
-            MessageBox.Show($"Delivery point set:\nLat: {lat:F6}\nLon: {lon:F6}",
-                "Mission Wizard", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show($"Точку доставки встановлено:\nШирота: {lat:F6}\nДовгота: {lon:F6}",
+                "Майстер місії", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void OnSetLandingClick(object sender, EventArgs e)
@@ -229,8 +229,8 @@ namespace MissionWizardPlugin
             if (!TryGetMenuLatLon(out var lat, out var lon))
             {
                 MessageBox.Show(
-                    "Failed to read map coordinates.",
-                    "Mission Wizard",
+                    "Не вдалося прочитати координати з карти.",
+                    "Майстер місії",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
                 return;
@@ -238,8 +238,8 @@ namespace MissionWizardPlugin
 
             MissionPointsStore.SetLanding(lat, lon);
             mapController?.RefreshMarkers();
-            MessageBox.Show($"Landing point set:\nLat: {lat:F6}\nLon: {lon:F6}",
-                "Mission Wizard", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show($"Точку посадки встановлено:\nШирота: {lat:F6}\nДовгота: {lon:F6}",
+                "Майстер місії", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void OnClearPointsClick(object sender, EventArgs e)
@@ -247,8 +247,8 @@ namespace MissionWizardPlugin
             MissionPointsStore.ClearAll();
             mapController?.RefreshMarkers();
             MessageBox.Show(
-                "Mission points cleared.",
-                "Mission Wizard",
+                "Точки місії очищено.",
+                "Майстер місії",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }

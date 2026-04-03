@@ -52,7 +52,7 @@ namespace MissionWizardPlugin
         public MissionWizardForm(PluginHost host)
         {
             this.host = host;
-            Text = "Mission Wizard - Step by Step";
+            Text = "Майстер місії - покроково";
             StartPosition = FormStartPosition.CenterScreen;
             Width = 920;
             Height = 640;
@@ -67,15 +67,15 @@ namespace MissionWizardPlugin
             tabs.TabPages.Add(CreateStep3());
             tabs.TabPages.Add(CreateStep4());
 
-            backButton.Text = "Back";
+            backButton.Text = "Назад";
             backButton.SetBounds(12, 520, 100, 32);
             backButton.Click += (_, __) => ChangeStep(-1);
 
-            nextButton.Text = "Next";
+            nextButton.Text = "Далі";
             nextButton.SetBounds(120, 520, 100, 32);
             nextButton.Click += (_, __) => ChangeStep(1);
 
-            generateButton.Text = "Generate Mission";
+            generateButton.Text = "Згенерувати місію";
             generateButton.SetBounds(740, 520, 150, 32);
             generateButton.Click += (_, __) => GenerateMission();
 
@@ -113,7 +113,7 @@ namespace MissionWizardPlugin
 
         private TabPage CreateStep1()
         {
-            var page = new TabPage("1. Home and Altitude");
+            var page = new TabPage("1. Старт і висота");
 
             homeLat = CreateNumeric(20, 40, -90, 90, input.HomeLat, 6, 0.000001M);
             homeLon = CreateNumeric(20, 90, -180, 180, input.HomeLon, 6, 0.000001M);
@@ -121,15 +121,15 @@ namespace MissionWizardPlugin
             cruiseAlt = CreateNumeric(20, 190, 10, 1000, input.CruiseAltMeters, 1, 1);
             rtlAlt = CreateNumeric(20, 240, 10, 300, input.RtlAltMeters, 1, 1);
 
-            page.Controls.Add(CreateLabel("Home Latitude", 20, 20));
+            page.Controls.Add(CreateLabel("Широта старту", 20, 20));
             page.Controls.Add(homeLat);
-            page.Controls.Add(CreateLabel("Home Longitude", 20, 70));
+            page.Controls.Add(CreateLabel("Довгота старту", 20, 70));
             page.Controls.Add(homeLon);
-            page.Controls.Add(CreateLabel("Takeoff Altitude (m)", 20, 120));
+            page.Controls.Add(CreateLabel("Висота зльоту (м)", 20, 120));
             page.Controls.Add(takeoffAlt);
-            page.Controls.Add(CreateLabel("Cruise Altitude (m)", 20, 170));
+            page.Controls.Add(CreateLabel("Крейсерська висота (м)", 20, 170));
             page.Controls.Add(cruiseAlt);
-            page.Controls.Add(CreateLabel("RTL Altitude (m)", 20, 220));
+            page.Controls.Add(CreateLabel("Висота RTL (м)", 20, 220));
             page.Controls.Add(rtlAlt);
 
             return page;
@@ -137,7 +137,7 @@ namespace MissionWizardPlugin
 
         private TabPage CreateStep2()
         {
-            var page = new TabPage("2. Survey Area");
+            var page = new TabPage("2. Зона обльоту");
 
             areaCenterLat = CreateNumeric(20, 40, -90, 90, input.AreaCenterLat, 6, 0.000001M);
             areaCenterLon = CreateNumeric(20, 90, -180, 180, input.AreaCenterLon, 6, 0.000001M);
@@ -146,17 +146,17 @@ namespace MissionWizardPlugin
             laneSpacing = CreateNumeric(20, 240, 5, 1000, input.LaneSpacingMeters, 1, 1);
             yaw = CreateNumeric(20, 290, -180, 180, input.YawDegrees, 1, 1);
 
-            page.Controls.Add(CreateLabel("Area Center Latitude", 20, 20));
+            page.Controls.Add(CreateLabel("Широта центру зони", 20, 20));
             page.Controls.Add(areaCenterLat);
-            page.Controls.Add(CreateLabel("Area Center Longitude", 20, 70));
+            page.Controls.Add(CreateLabel("Довгота центру зони", 20, 70));
             page.Controls.Add(areaCenterLon);
-            page.Controls.Add(CreateLabel("Area Width (m)", 20, 120));
+            page.Controls.Add(CreateLabel("Ширина зони (м)", 20, 120));
             page.Controls.Add(areaWidth);
-            page.Controls.Add(CreateLabel("Area Height (m)", 20, 170));
+            page.Controls.Add(CreateLabel("Висота зони (м)", 20, 170));
             page.Controls.Add(areaHeight);
-            page.Controls.Add(CreateLabel("Lane Spacing (m)", 20, 220));
+            page.Controls.Add(CreateLabel("Крок між проходами (м)", 20, 220));
             page.Controls.Add(laneSpacing);
-            page.Controls.Add(CreateLabel("Pattern Rotation (deg)", 20, 270));
+            page.Controls.Add(CreateLabel("Поворот шаблону (град)", 20, 270));
             page.Controls.Add(yaw);
 
             return page;
@@ -164,7 +164,7 @@ namespace MissionWizardPlugin
 
         private TabPage CreateStep3()
         {
-            var page = new TabPage("3. Actions and Payload");
+            var page = new TabPage("3. Дії та вантаж");
 
             speed = CreateNumeric(20, 40, 1, 60, input.SpeedMetersPerSecond, 1, 1);
             addCamTrigger = new CheckBox
@@ -172,7 +172,7 @@ namespace MissionWizardPlugin
                 Left = 20,
                 Top = 95,
                 Width = 280,
-                Text = "Enable camera trigger by distance"
+                Text = "Увімкнути тригер камери за дистанцією"
             };
 
             triggerDist = CreateNumeric(20, 145, 1, 500, input.CameraTriggerMeters, 1, 1);
@@ -185,7 +185,7 @@ namespace MissionWizardPlugin
                 Top = 200,
                 Width = 320,
                 Checked = true,
-                Text = "Load generated mission directly to Flight Plan"
+                Text = "Завантажити згенеровану місію прямо у Flight Plan"
             };
 
             usePointRoute = new CheckBox
@@ -194,7 +194,7 @@ namespace MissionWizardPlugin
                 Top = 235,
                 Width = 320,
                 Checked = input.UsePointRoute,
-                Text = "Use map points route (Start -> Delivery -> Landing)"
+                Text = "Використати маршрут за точками карти (Старт -> Доставка -> Посадка)"
             };
 
             useDeliveryTarget = new CheckBox
@@ -203,7 +203,7 @@ namespace MissionWizardPlugin
                 Top = 265,
                 Width = 320,
                 Checked = input.UseDeliveryTarget,
-                Text = "Use delivery target (set from map)"
+                Text = "Використати ціль доставки (взяти з карти)"
             };
 
             deliveryOnlyMission = new CheckBox
@@ -212,7 +212,7 @@ namespace MissionWizardPlugin
                 Top = 295,
                 Width = 340,
                 Checked = input.DeliveryOnlyMission,
-                Text = "Delivery only mission (skip survey pattern)"
+                Text = "Лише доставка (пропустити шаблон обльоту)"
             };
 
             deliveryTargetLat = CreateNumeric(380, 235, -90, 90, input.DeliveryTargetLat, 6, 0.000001M);
@@ -227,38 +227,38 @@ namespace MissionWizardPlugin
                 Top = 430,
                 Width = 260,
                 Checked = input.AddPayloadRelease,
-                Text = "Add payload release command"
+                Text = "Додати команду скидання вантажу"
             };
             payloadServo = CreateNumeric(380, 460, 1, 16, input.PayloadServoNumber, 0, 1);
             payloadPwm = CreateNumeric(540, 460, 900, 2200, input.PayloadServoPwm, 0, 10);
             payloadDelay = CreateNumeric(700, 460, 0, 30, input.PayloadReleaseDelaySeconds, 1, 0.5M);
 
-            page.Controls.Add(CreateLabel("Speed (m/s)", 20, 20));
+            page.Controls.Add(CreateLabel("Швидкість (м/с)", 20, 20));
             page.Controls.Add(speed);
             page.Controls.Add(addCamTrigger);
-            page.Controls.Add(CreateLabel("Trigger Distance (m)", 20, 125));
+            page.Controls.Add(CreateLabel("Дистанція тригера (м)", 20, 125));
             page.Controls.Add(triggerDist);
             page.Controls.Add(loadDirectlyToFlightPlan);
             page.Controls.Add(usePointRoute);
             page.Controls.Add(useDeliveryTarget);
             page.Controls.Add(deliveryOnlyMission);
 
-            page.Controls.Add(CreateLabel("Delivery Target Latitude", 380, 215));
+            page.Controls.Add(CreateLabel("Широта точки доставки", 380, 215));
             page.Controls.Add(deliveryTargetLat);
-            page.Controls.Add(CreateLabel("Delivery Target Longitude", 380, 265));
+            page.Controls.Add(CreateLabel("Довгота точки доставки", 380, 265));
             page.Controls.Add(deliveryTargetLon);
-            page.Controls.Add(CreateLabel("Landing Latitude", 380, 315));
+            page.Controls.Add(CreateLabel("Широта точки посадки", 380, 315));
             page.Controls.Add(landingLat);
-            page.Controls.Add(CreateLabel("Landing Longitude", 380, 365));
+            page.Controls.Add(CreateLabel("Довгота точки посадки", 380, 365));
             page.Controls.Add(landingLon);
-            page.Controls.Add(CreateLabel("Run-in Distance (m)", 380, 380));
+            page.Controls.Add(CreateLabel("Дистанція заходу (м)", 380, 380));
             page.Controls.Add(runInDistance);
             page.Controls.Add(addPayloadRelease);
-            page.Controls.Add(CreateLabel("Servo", 380, 440));
+            page.Controls.Add(CreateLabel("Серво", 380, 440));
             page.Controls.Add(payloadServo);
             page.Controls.Add(CreateLabel("PWM", 540, 440));
             page.Controls.Add(payloadPwm);
-            page.Controls.Add(CreateLabel("Delay (s)", 700, 440));
+            page.Controls.Add(CreateLabel("Затримка (с)", 700, 440));
             page.Controls.Add(payloadDelay);
 
             return page;
@@ -266,7 +266,7 @@ namespace MissionWizardPlugin
 
         private TabPage CreateStep4()
         {
-            var page = new TabPage("4. Review and Generate");
+            var page = new TabPage("4. Перевірка і генерація");
 
             summaryBox.Multiline = true;
             summaryBox.ReadOnly = true;
@@ -332,54 +332,54 @@ namespace MissionWizardPlugin
             PullUiValues();
 
             var sb = new StringBuilder();
-            sb.AppendLine("Mission Wizard Summary");
+            sb.AppendLine("Підсумок майстра місії");
             sb.AppendLine(new string('=', 36));
             sb.AppendLine();
-            sb.AppendLine($"Home:        {input.HomeLat:F6}, {input.HomeLon:F6}");
-            sb.AppendLine($"Takeoff Alt: {input.TakeoffAltMeters:F0} m");
-            sb.AppendLine($"Cruise Alt:  {input.CruiseAltMeters:F0} m");
-            sb.AppendLine($"RTL Alt:     {input.RtlAltMeters:F0} m");
+            sb.AppendLine($"Старт:           {input.HomeLat:F6}, {input.HomeLon:F6}");
+            sb.AppendLine($"Висота зльоту:   {input.TakeoffAltMeters:F0} м");
+            sb.AppendLine($"Крейсерська:     {input.CruiseAltMeters:F0} м");
+            sb.AppendLine($"Висота RTL:      {input.RtlAltMeters:F0} м");
             sb.AppendLine();
-            sb.AppendLine($"Area center: {input.AreaCenterLat:F6}, {input.AreaCenterLon:F6}");
-            sb.AppendLine($"Area size:   {input.AreaWidthMeters:F0} x {input.AreaHeightMeters:F0} m");
-            sb.AppendLine($"Lane space:  {input.LaneSpacingMeters:F0} m");
-            sb.AppendLine($"Rotation:    {input.YawDegrees:F0} deg");
+            sb.AppendLine($"Центр зони:       {input.AreaCenterLat:F6}, {input.AreaCenterLon:F6}");
+            sb.AppendLine($"Розмір зони:      {input.AreaWidthMeters:F0} x {input.AreaHeightMeters:F0} м");
+            sb.AppendLine($"Крок проходів:    {input.LaneSpacingMeters:F0} м");
+            sb.AppendLine($"Поворот:          {input.YawDegrees:F0} град");
             sb.AppendLine();
-            sb.AppendLine($"Speed:       {input.SpeedMetersPerSecond:F0} m/s");
-            sb.AppendLine($"Camera trig: {(input.AddCameraTrigger ? "ON" : "OFF")}");
+            sb.AppendLine($"Швидкість:        {input.SpeedMetersPerSecond:F0} м/с");
+            sb.AppendLine($"Тригер камери:    {(input.AddCameraTrigger ? "УВІМК" : "ВИМК")}");
             if (input.AddCameraTrigger)
             {
-                sb.AppendLine($"Trig dist:   {input.CameraTriggerMeters:F0} m");
+                sb.AppendLine($"Дистанц. тригера: {input.CameraTriggerMeters:F0} м");
             }
-            sb.AppendLine($"Point route: {(input.UsePointRoute ? "ON" : "OFF")}");
-            sb.AppendLine($"Use target:  {(input.UseDeliveryTarget ? "ON" : "OFF")}");
+            sb.AppendLine($"Маршрут за точк.: {(input.UsePointRoute ? "УВІМК" : "ВИМК")}");
+            sb.AppendLine($"Ціль доставки:    {(input.UseDeliveryTarget ? "УВІМК" : "ВИМК")}");
             if (input.UseDeliveryTarget)
             {
-                sb.AppendLine($"Target:      {input.DeliveryTargetLat:F6}, {input.DeliveryTargetLon:F6}");
-                sb.AppendLine($"Run-in:      {input.DeliveryRunInMeters:F0} m");
-                sb.AppendLine($"DeliveryOnly:{(input.DeliveryOnlyMission ? "YES" : "NO")}");
-                sb.AppendLine($"Release cmd: {(input.AddPayloadRelease ? "ON" : "OFF")}");
+                sb.AppendLine($"Точка доставки:   {input.DeliveryTargetLat:F6}, {input.DeliveryTargetLon:F6}");
+                sb.AppendLine($"Дистанц. заходу:  {input.DeliveryRunInMeters:F0} м");
+                sb.AppendLine($"Лише доставка:    {(input.DeliveryOnlyMission ? "ТАК" : "НІ")}");
+                sb.AppendLine($"Скидання вантажу: {(input.AddPayloadRelease ? "УВІМК" : "ВИМК")}");
                 if (input.AddPayloadRelease)
                 {
-                    sb.AppendLine($"Servo/PWM:   {input.PayloadServoNumber} / {input.PayloadServoPwm}");
-                    sb.AppendLine($"Delay:       {input.PayloadReleaseDelaySeconds:F1} s");
+                    sb.AppendLine($"Серво/PWM:       {input.PayloadServoNumber} / {input.PayloadServoPwm}");
+                    sb.AppendLine($"Затримка:        {input.PayloadReleaseDelaySeconds:F1} с");
                 }
             }
             if (input.UsePointRoute)
             {
-                sb.AppendLine($"Landing:     {input.LandingLat:F6}, {input.LandingLon:F6}");
+                sb.AppendLine($"Точка посадки:    {input.LandingLat:F6}, {input.LandingLon:F6}");
             }
 
             try
             {
                 var count = input.BuildMissionItems().Count;
                 sb.AppendLine();
-                sb.AppendLine($"Estimated mission items: {count}");
+                sb.AppendLine($"Орієнтовна к-сть команд місії: {count}");
             }
             catch (Exception ex)
             {
                 sb.AppendLine();
-                sb.AppendLine("Validation error: " + ex.Message);
+                sb.AppendLine("Помилка перевірки: " + ex.Message);
             }
 
             summaryBox.Text = sb.ToString();
@@ -404,19 +404,19 @@ namespace MissionWizardPlugin
                 }
 
                 MessageBox.Show(
-                    "Mission file generated:\n" + outputFile +
+                    "Файл місії згенеровано:\n" + outputFile +
                     (loadDirectlyToFlightPlan.Checked
-                        ? "\n\nMission was loaded directly into Flight Plan."
-                        : "\n\nImport it in Mission Planner:\nFlight Plan -> Load WP File"),
-                    "Mission Ready",
+                        ? "\n\nМісію завантажено безпосередньо у Flight Plan."
+                        : "\n\nІмпорт у Mission Planner:\nFlight Plan -> Load WP File"),
+                    "Місію створено",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
-                    "Mission generation failed:\n" + ex.Message,
-                    "Error",
+                    "Не вдалося згенерувати місію:\n" + ex.Message,
+                    "Помилка",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }

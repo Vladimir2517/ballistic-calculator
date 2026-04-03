@@ -21,7 +21,7 @@ namespace MissionWizardPlugin
         public MissionMapPointController(PluginHost host)
         {
             this.host = host ?? throw new ArgumentNullException(nameof(host));
-            map = host.FPGMapControl ?? throw new InvalidOperationException("Flight Planner map is not available.");
+            map = host.FPGMapControl ?? throw new InvalidOperationException("Карта Flight Planner недоступна.");
 
             overlay = new GMapOverlay("MissionWizardPoints");
             map.Overlays.Add(overlay);
@@ -70,7 +70,7 @@ namespace MissionWizardPlugin
                 overlay.Markers.Add(CreateMarker(
                     MissionPointsStore.StartLat,
                     MissionPointsStore.StartLon,
-                    "START",
+                    "СТАРТ",
                     GMarkerGoogleType.green_dot));
             }
 
@@ -79,7 +79,7 @@ namespace MissionWizardPlugin
                 overlay.Markers.Add(CreateMarker(
                     MissionPointsStore.DeliveryLat,
                     MissionPointsStore.DeliveryLon,
-                    "DELIVERY",
+                    "ДОСТАВКА",
                     GMarkerGoogleType.red_dot));
             }
 
@@ -88,7 +88,7 @@ namespace MissionWizardPlugin
                 overlay.Markers.Add(CreateMarker(
                     MissionPointsStore.LandingLat,
                     MissionPointsStore.LandingLon,
-                    "LANDING",
+                    "ПОСАДКА",
                     GMarkerGoogleType.blue_dot));
             }
 
@@ -118,7 +118,7 @@ namespace MissionWizardPlugin
 
         private void OnBuilderButtonClick(object sender, EventArgs e)
         {
-            // Open Flight Planner tab context.
+            // Відкрити вкладку Flight Planner для контексту користувача.
             var menuFlightPlannerField = host.MainForm?.GetType().GetField("MenuFlightPlanner");
             var menuFlightPlanner = menuFlightPlannerField?.GetValue(host.MainForm) as ToolStripButton;
             menuFlightPlanner?.PerformClick();
@@ -129,11 +129,11 @@ namespace MissionWizardPlugin
                 : 0;
 
             MessageBox.Show(
-                "Map mission builder is active.\n\n" +
-                "Left click map to set points in order:\n" +
-                "1) START\n2) DELIVERY\n3) LANDING\n\n" +
-                "After that open Mission Wizard and click Generate Mission.",
-                "Mission Builder",
+                "Режим побудови місії активний.\n\n" +
+                "Лівою кнопкою миші встановіть точки за порядком:\n" +
+                "1) СТАРТ\n2) ДОСТАВКА\n3) ПОСАДКА\n\n" +
+                "Після цього відкрийте Майстер місії та натисніть Згенерувати місію.",
+                "Балістика",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
@@ -174,8 +174,8 @@ namespace MissionWizardPlugin
             pickStep = 0;
 
             MessageBox.Show(
-                "Points collected: START, DELIVERY, LANDING.\nOpen Mission Wizard to generate mission.",
-                "Mission Builder",
+                "Точки зібрано: СТАРТ, ДОСТАВКА, ПОСАДКА.\nВідкрийте Майстер місії для генерації.",
+                "Балістика",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }

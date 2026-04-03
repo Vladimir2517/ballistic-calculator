@@ -25,7 +25,7 @@ namespace MissionWizardPlugin
         {
             if (input.LaneSpacingMeters <= 0)
             {
-                throw new InvalidOperationException("Lane spacing must be > 0");
+                throw new InvalidOperationException("Крок між проходами має бути > 0");
             }
 
             var mission = new List<MissionItem>();
@@ -150,11 +150,11 @@ namespace MissionWizardPlugin
             {
                 if (!input.HasDeliveryPoint)
                 {
-                    throw new InvalidOperationException("Delivery point is not set.");
+                    throw new InvalidOperationException("Точку доставки не встановлено.");
                 }
                 if (!input.HasLandingPoint)
                 {
-                    throw new InvalidOperationException("Landing point is not set.");
+                    throw new InvalidOperationException("Точку посадки не встановлено.");
                 }
 
                 mission.Add(new MissionItem
