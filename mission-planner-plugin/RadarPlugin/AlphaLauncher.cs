@@ -42,8 +42,10 @@ namespace RadarPlugin
                     connectItem.PerformClick();
                 }
 
-                OpenFlightData(host);
-                SchedulePostConnectRefresh(host, refreshItem);
+                if (refreshItem != null)
+                {
+                    refreshItem.PerformClick();
+                }
 
                 message = connectItem != null
                     ? "Alpha Map відкрито в Mission Planner."
@@ -89,53 +91,6 @@ namespace RadarPlugin
             }
 
             return null;
-        }
-
-        private static void SchedulePostConnectRefresh(PluginHost host, ToolStripItem refreshItem)
-        {
-            var mainForm = host?.MainForm as Control;
-            if (mainForm == null || mainForm.IsDisposed || refreshItem == null)
-            {
-                return;
-            }
-
-            var timer = new Timer { Interval = 1500 };
-            var refreshCount = 0;
-            timer.Tick += delegate
-            {
-                try
-                {
-                    if (mainForm.IsDisposed)
-                    {
-                        timer.Stop();
-                        timer.Dispose();
-                        return;
-                    }
-
-                    OpenFlightData(host);
-                    refreshItem.PerformClick();
-                    refreshCount++;
-
-                    if (refreshCount >= 3)
-                    {
-                        timer.Stop();
-                        timer.Dispose();
-                    }
-                }
-                catch
-                {
-                    try
-                    {
-                        timer.Stop();
-                        timer.Dispose();
-                    }
-                    catch
-                    {
-                    }
-                }
-            };
-
-            timer.Start();
         }
     }
 }
