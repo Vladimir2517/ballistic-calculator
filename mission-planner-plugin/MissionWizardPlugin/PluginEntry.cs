@@ -153,21 +153,34 @@ namespace MissionWizardPlugin
         {
             var bmp = new Bitmap(16, 16);
             using (var g = Graphics.FromImage(bmp))
-            using (var penGrid = new Pen(Color.FromArgb(70, 95, 130), 1f))
-            using (var penRing = new Pen(Color.FromArgb(35, 114, 186), 1.5f))
-            using (var penArrow = new Pen(Color.FromArgb(220, 126, 33), 2f))
-            using (var centerBrush = new SolidBrush(Color.FromArgb(220, 126, 33)))
+            using (var penReticle = new Pen(Color.FromArgb(35, 114, 186), 1f))
+            using (var penRing = new Pen(Color.FromArgb(35, 114, 186), 1f))
+            using (var centerBrush = new SolidBrush(Color.FromArgb(35, 114, 186)))
+            using (var textBrush = new SolidBrush(Color.FromArgb(70, 140, 200)))
             {
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
                 g.Clear(Color.Transparent);
 
-                g.DrawLine(penGrid, 8, 1, 8, 15);
-                g.DrawLine(penGrid, 1, 8, 15, 8);
-                g.DrawEllipse(penRing, 2, 2, 12, 12);
+                // Simple reticle: vertical + horizontal lines
+                g.DrawLine(penReticle, 8, 0, 8, 16);
+                g.DrawLine(penReticle, 0, 8, 16, 8);
 
-                penArrow.EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor;
-                g.DrawLine(penArrow, 4, 12, 11, 5);
-                g.FillEllipse(centerBrush, 6, 6, 4, 4);
+                // Ring around center
+                g.DrawEllipse(penRing, 5, 5, 6, 6);
+
+                // Center dot
+                g.FillEllipse(centerBrush, 7, 7, 2, 2);
+
+                // Text "BALLISTICS" at bottom (very small)
+                using (var font = new Font("Arial", 3f, FontStyle.Bold))
+                {
+                    var text = "BALLISTICS";
+                    var textSize = g.MeasureString(text, font);
+                    var textX = (16 - textSize.Width) / 2;
+                    var textY = 12;
+                    g.DrawString(text, font, textBrush, textX, textY);
+                }
             }
 
             return bmp;
