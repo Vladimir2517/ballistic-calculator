@@ -516,6 +516,11 @@ namespace MissionWizardPlugin
                 WizardDialogService.OpenWizard(host);
         }
 
+        public void ActivateBuilderMode()
+        {
+            builderButton?.PerformClick();
+        }
+
         private static GMapMarker CreateMarker(double lat, double lon, string label, GMarkerGoogleType type)
         {
             return new GMarkerGoogle(new PointLatLng(lat, lon), type)

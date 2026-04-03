@@ -209,6 +209,12 @@ namespace MissionWizardPlugin
                 if (menuFlightPlanner != null)
                 {
                     menuFlightPlanner.PerformClick();
+
+                    // Активируем режим построения миссии
+                    if (mapController != null)
+                    {
+                        mapController.ActivateBuilderMode();
+                    }
                 }
                 else
                 {
