@@ -1,0 +1,15 @@
+{
+  "include": [
+    "main.py",
+    "calculator"
+  ],
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": [
+        "."
+      ]
+    }
+  ],
+  "reportMissingModuleSource": "none"
+}

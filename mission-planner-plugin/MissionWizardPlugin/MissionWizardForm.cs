@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -49,6 +50,8 @@ namespace MissionWizardPlugin
         private NumericUpDown payloadServo;
         private NumericUpDown payloadPwm;
         private NumericUpDown payloadDelay;
+        private Button importBombingTableButton;
+        private BombingTableSnapshot importedBombingTable;
 
         public MissionWizardForm(PluginHost host)
         {
@@ -111,6 +114,7 @@ namespace MissionWizardPlugin
 
             MissionContextResolver.ApplyDefaults(host, input);
 
+            TryAutoImportBombingTable();
             BuildSummary();
         }
 
@@ -239,6 +243,16 @@ namespace MissionWizardPlugin
             payloadPwm = CreateNumeric(540, 460, 900, 2200, input.PayloadServoPwm, 0, 10);
             payloadDelay = CreateNumeric(700, 460, 0, 30, input.PayloadReleaseDelaySeconds, 1, 0.5M);
 
+            importBombingTableButton = new Button
+            {
+                Left = 20,
+                Top = 335,
+                Width = 320,
+                Height = 30,
+                Text = "Імпорт параметрів з XLSX таблиці"
+            };
+            importBombingTableButton.Click += (_, __) => ImportBombingTableFromDialog();
+
             page.Controls.Add(CreateLabel("Швидкість (м/с)", 20, 20));
             page.Controls.Add(speed);
             page.Controls.Add(addCamTrigger);
@@ -248,6 +262,7 @@ namespace MissionWizardPlugin
             page.Controls.Add(usePointRoute);
             page.Controls.Add(useDeliveryTarget);
             page.Controls.Add(deliveryOnlyMission);
+            page.Controls.Add(importBombingTableButton);
 
             page.Controls.Add(CreateLabel("Широта точки доставки", 380, 215));
             page.Controls.Add(deliveryTargetLat);
@@ -337,7 +352,8 @@ namespace MissionWizardPlugin
         private void BuildSummary()
         {
             PullUiValues();
-            MissionContextResolver.ApplyDefaults(host, input);
+            ApplyImportedBombingTable();
+            MissionContextResolver.ApplyDefaults(host, input, false);
 
             var sb = new StringBuilder();
             sb.AppendLine("Підсумок майстра місії");
@@ -384,6 +400,10 @@ namespace MissionWizardPlugin
             }
 
             sb.AppendLine($"Вітер:            {input.WindSpeedMps:F1} м/с з {input.WindDirectionFromDeg:F0}° ({input.WindSource})");
+            if (importedBombingTable != null)
+            {
+                sb.AppendLine($"XLSX-джерело:      {Path.GetFileName(importedBombingTable.SourceFile)}");
+            }
 
             try
             {
@@ -406,6 +426,7 @@ namespace MissionWizardPlugin
             {
                 PullUiValues();
                 MissionContextResolver.ApplyDefaults(host, input);
+                ApplyImportedBombingTable();
                 var mission = input.BuildMissionItems();
 
                 var outputDir = Path.Combine(
@@ -443,6 +464,146 @@ namespace MissionWizardPlugin
         {
             backButton.Enabled = tabs.SelectedIndex > 0;
             nextButton.Enabled = tabs.SelectedIndex < tabs.TabPages.Count - 1;
+        }
+
+        private void TryAutoImportBombingTable()
+        {
+            try
+            {
+                var candidatePaths = new[]
+                {
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins", "Таблица_бомбометания.xlsx"),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Таблица_бомбометания.xlsx"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MissionWizard", "Таблица_бомбометания.xlsx"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MissionWizard", "input", "Таблица_бомбометания.xlsx"),
+                    @"C:\Projects\ballistic-calculator\input\Таблица_бомбометания.xlsx"
+                };
+
+                var found = candidatePaths.FirstOrDefault(File.Exists);
+                if (string.IsNullOrEmpty(found))
+                {
+                    return;
+                }
+
+                if (BombingTableXlsx.TryLoad(found, out var snapshot, out _))
+                {
+                    importedBombingTable = snapshot;
+                    ApplyImportedBombingTable();
+                    PushInputToUi();
+                }
+            }
+            catch
+            {
+                // Ignore auto-import errors to keep wizard startup fast and resilient.
+            }
+        }
+
+        private void ImportBombingTableFromDialog()
+        {
+            using (var dialog = new OpenFileDialog())
+            {
+                dialog.Title = "Оберіть таблицю бомбометання (XLSX)";
+                dialog.Filter = "Excel (*.xlsx)|*.xlsx";
+                dialog.Multiselect = false;
+
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                if (!BombingTableXlsx.TryLoad(dialog.FileName, out var snapshot, out var error))
+                {
+                    MessageBox.Show(
+                        "Не вдалося імпортувати таблицю:\n" + error,
+                        "Імпорт XLSX",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                importedBombingTable = snapshot;
+                ApplyImportedBombingTable();
+                PushInputToUi();
+                BuildSummary();
+
+                MessageBox.Show(
+                    "Параметри з таблиці застосовано.\n" +
+                    "Буде використано координати цілі, швидкість, вітер, висоту бомбометання та віднос.",
+                    "Імпорт XLSX",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+
+        private void ApplyImportedBombingTable()
+        {
+            if (importedBombingTable == null)
+            {
+                return;
+            }
+
+            if (importedBombingTable.TargetLat.HasValue)
+            {
+                input.DeliveryTargetLat = importedBombingTable.TargetLat.Value;
+            }
+            if (importedBombingTable.TargetLon.HasValue)
+            {
+                input.DeliveryTargetLon = importedBombingTable.TargetLon.Value;
+            }
+            if (importedBombingTable.AircraftSpeedMps.HasValue && importedBombingTable.AircraftSpeedMps.Value > 0)
+            {
+                input.SpeedMetersPerSecond = importedBombingTable.AircraftSpeedMps.Value;
+            }
+            if (importedBombingTable.WindDirFromDeg.HasValue)
+            {
+                input.WindDirectionFromDeg = importedBombingTable.WindDirFromDeg.Value;
+            }
+            if (importedBombingTable.WindSpeedMps.HasValue && importedBombingTable.WindSpeedMps.Value >= 0)
+            {
+                input.WindSpeedMps = importedBombingTable.WindSpeedMps.Value;
+            }
+            if (importedBombingTable.DropHeightMeters.HasValue && importedBombingTable.DropHeightMeters.Value > 0)
+            {
+                input.DropHeightAboveTargetMeters = importedBombingTable.DropHeightMeters.Value;
+            }
+            if (importedBombingTable.ReleaseDistanceMeters.HasValue && importedBombingTable.ReleaseDistanceMeters.Value > 0)
+            {
+                input.DeliveryRunInMeters = importedBombingTable.ReleaseDistanceMeters.Value;
+            }
+
+            input.UseDeliveryTarget = true;
+            input.HasDeliveryPoint = true;
+            input.WindSource = "XLSX";
+        }
+
+        private void PushInputToUi()
+        {
+            SetNumeric(homeLat, input.HomeLat);
+            SetNumeric(homeLon, input.HomeLon);
+            SetNumeric(takeoffAlt, input.TakeoffAltMeters);
+            SetNumeric(takeoffPitch, input.TakeoffPitchDegrees);
+            SetNumeric(cruiseAlt, input.CruiseAltMeters);
+            SetNumeric(rtlAlt, input.RtlAltMeters);
+
+            SetNumeric(speed, input.SpeedMetersPerSecond);
+            SetNumeric(deliveryTargetLat, input.DeliveryTargetLat);
+            SetNumeric(deliveryTargetLon, input.DeliveryTargetLon);
+            SetNumeric(runInDistance, input.DeliveryRunInMeters);
+
+            useDeliveryTarget.Checked = input.UseDeliveryTarget;
+        }
+
+        private static void SetNumeric(NumericUpDown control, double value)
+        {
+            if (control == null)
+            {
+                return;
+            }
+
+            var val = (decimal)value;
+            if (val < control.Minimum) val = control.Minimum;
+            if (val > control.Maximum) val = control.Maximum;
+            control.Value = val;
         }
 
         private static Label CreateLabel(string text, int x, int y)

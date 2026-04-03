@@ -10,16 +10,24 @@ namespace MissionWizardPlugin
 {
     internal static class MissionContextResolver
     {
-        public static void ApplyDefaults(PluginHost host, MissionWizardInput input)
+        public static void ApplyDefaults(PluginHost host, MissionWizardInput input, bool resolveExternal = true)
         {
             if (input == null)
             {
                 return;
             }
 
-            ApplyAutopilotDefaults(host, input);
-            ApplyWind(host, input);
+            if (resolveExternal)
+            {
+                ApplyAutopilotDefaults(host, input);
+                ApplyWind(host, input);
+            }
 
+            ApplySanityDefaults(input);
+        }
+
+        private static void ApplySanityDefaults(MissionWizardInput input)
+        {
             if (input.TakeoffAltMeters <= 0)
             {
                 input.TakeoffAltMeters = 100;

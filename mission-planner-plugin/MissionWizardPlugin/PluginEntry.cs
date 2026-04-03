@@ -11,6 +11,7 @@ namespace MissionWizardPlugin
         private ToolStripMenuItem setDeliveryItem;
         private ToolStripMenuItem setLandingItem;
         private ToolStripMenuItem clearPointsItem;
+        private ToolStripMenuItem autoMissionItem;
         private ToolStripItemCollection menuOwnerItems;
         private MissionMapPointController mapController;
 
@@ -42,10 +43,14 @@ namespace MissionWizardPlugin
                 clearPointsItem = new ToolStripMenuItem("Очистити точки місії");
                 clearPointsItem.Click += OnClearPointsClick;
 
+                autoMissionItem = new ToolStripMenuItem("⚡ Бомбометання сюди (авто)");
+                autoMissionItem.Click += OnAutoMissionClick;
+
                 // Preferred placement: Flight Planner tab context menu.
                 if (Host.FPMenuMap != null)
                 {
                     menuOwnerItems = Host.FPMenuMap.Items;
+                    menuOwnerItems.Add(autoMissionItem);
                     menuOwnerItems.Add(setStartItem);
                     menuOwnerItems.Add(setDeliveryItem);
                     menuOwnerItems.Add(setLandingItem);
@@ -56,6 +61,7 @@ namespace MissionWizardPlugin
                 {
                     // Запасний варіант для старіших збірок: контекстне меню карти Flight Data.
                     menuOwnerItems = Host.FDMenuMap.Items;
+                    menuOwnerItems.Add(autoMissionItem);
                     menuOwnerItems.Add(setStartItem);
                     menuOwnerItems.Add(setDeliveryItem);
                     menuOwnerItems.Add(setLandingItem);
@@ -124,12 +130,17 @@ namespace MissionWizardPlugin
                 {
                     menuOwnerItems.Remove(clearPointsItem);
                 }
+                if (menuOwnerItems != null && autoMissionItem != null && menuOwnerItems.Contains(autoMissionItem))
+                {
+                    menuOwnerItems.Remove(autoMissionItem);
+                }
 
                 menuItem.Dispose();
                 setStartItem?.Dispose();
                 setDeliveryItem?.Dispose();
                 setLandingItem?.Dispose();
                 clearPointsItem?.Dispose();
+                autoMissionItem?.Dispose();
                 menuItem = null;
                 setStartItem = null;
                 setDeliveryItem = null;
@@ -150,6 +161,21 @@ namespace MissionWizardPlugin
         private void OnMenuClick(object sender, EventArgs e)
         {
             WizardDialogService.OpenWizard(Host);
+        }
+
+        private void OnAutoMissionClick(object sender, EventArgs e)
+        {
+            if (!TryGetMenuLatLon(out var lat, out var lon))
+            {
+                MessageBox.Show(
+                    "Не вдалося прочитати координати з карти.",
+                    "Автоматична місія",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            AutoMissionService.Execute(Host, lat, lon);
         }
 
         private bool TryGetMenuLatLon(out double lat, out double lon)

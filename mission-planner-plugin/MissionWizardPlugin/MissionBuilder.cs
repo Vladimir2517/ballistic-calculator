@@ -92,31 +92,45 @@ namespace MissionWizardPlugin
             if (input.UseDeliveryTarget)
             {
                 var deliveryAlt = input.DeliveryTargetRelativeAltMeters + input.DropHeightAboveTargetMeters;
-                double inboundBearingDeg;
-                var deliveryApproach = input.WindSpeedMps > 0.1f
-                    ? BuildApproachPointAgainstWind(
-                        input.DeliveryTargetLat,
-                        input.DeliveryTargetLon,
-                        input.WindDirectionFromDeg,
-                        input.DeliveryRunInMeters)
-                    : BuildApproachPoint(
-                        input.HomeLat,
-                        input.HomeLon,
-                        input.DeliveryTargetLat,
-                        input.DeliveryTargetLon,
-                        input.DeliveryRunInMeters);
 
-                inboundBearingDeg = input.WindSpeedMps > 0.1f
+                // Determine inbound bearing (aircraft heading toward target)
+                double inboundBearingDeg = input.WindSpeedMps > 0.1f
                     ? input.WindDirectionFromDeg
                     : ComputeBearingDegrees(
-                        deliveryApproach.lat,
-                        deliveryApproach.lon,
-                        input.DeliveryTargetLat,
-                        input.DeliveryTargetLon);
+                        input.HomeLat, input.HomeLon,
+                        input.DeliveryTargetLat, input.DeliveryTargetLon);
 
+                // Actual release point:
+                // When BombReleaseOffsetMeters > 0, plane releases BEFORE the target:
+                //   release_point = target shifted (offset) meters UPWIND (opposite inbound)
+                //   bomb then travels forward and hits the actual target.
+                // Otherwise plane flies over the target directly.
+                double releaseLatD;
+                double releaseLonD;
+                if (input.BombReleaseOffsetMeters > 0.5f)
+                {
+                    var upwindBearing = (inboundBearingDeg + 180.0) % 360.0;
+                    var rel = OffsetLatLonByBearing(
+                        input.DeliveryTargetLat, input.DeliveryTargetLon,
+                        upwindBearing, input.BombReleaseOffsetMeters);
+                    releaseLatD = rel.lat;
+                    releaseLonD = rel.lon;
+                }
+                else
+                {
+                    releaseLatD = input.DeliveryTargetLat;
+                    releaseLonD = input.DeliveryTargetLon;
+                }
+
+                // Approach point: RunIn meters upwind of release point
+                var deliveryApproach = OffsetLatLonByBearing(
+                    releaseLatD, releaseLonD,
+                    (inboundBearingDeg + 180.0) % 360.0,
+                    input.DeliveryRunInMeters);
+
+                // Egress: continue PostDropEgressMeters past release in flight direction
                 var deliveryEgress = OffsetLatLonByBearing(
-                    input.DeliveryTargetLat,
-                    input.DeliveryTargetLon,
+                    releaseLatD, releaseLonD,
                     inboundBearingDeg,
                     input.PostDropEgressMeters);
 
@@ -133,8 +147,8 @@ namespace MissionWizardPlugin
                 {
                     Seq = seq++,
                     Command = CmdNavWaypoint,
-                    Lat = input.DeliveryTargetLat,
-                    Lon = input.DeliveryTargetLon,
+                    Lat = releaseLatD,
+                    Lon = releaseLonD,
                     Alt = deliveryAlt
                 });
 
@@ -158,8 +172,8 @@ namespace MissionWizardPlugin
                             Seq = seq++,
                             Command = CmdNavDelay,
                             Param1 = input.PayloadReleaseDelaySeconds,
-                            Lat = input.DeliveryTargetLat,
-                            Lon = input.DeliveryTargetLon,
+                            Lat = releaseLatD,
+                            Lon = releaseLonD,
                             Alt = deliveryAlt
                         });
                     }

@@ -15,8 +15,12 @@ namespace MissionWizardPlugin
         private readonly GMapOverlay overlay;
         private readonly Button builderButton;
 
+        private bool autoMissionMode;
         private bool pickingMode;
         private int pickStep;
+
+        private static readonly Color ButtonNormalColor = Color.FromArgb(29, 78, 216);
+        private static readonly Color ButtonActiveColor = Color.FromArgb(180, 30, 30);
 
         public MissionMapPointController(PluginHost host)
         {
@@ -118,37 +122,43 @@ namespace MissionWizardPlugin
 
         private void OnBuilderButtonClick(object sender, EventArgs e)
         {
+            // If already in auto mode — cancel
+            if (autoMissionMode)
+            {
+                autoMissionMode = false;
+                builderButton.Text = "Балістика";
+                builderButton.BackColor = ButtonNormalColor;
+                return;
+            }
+
+            // If already in picking mode — cancel
+            if (pickingMode)
+            {
+                pickingMode = false;
+                pickStep = 0;
+                builderButton.Text = "Балістика";
+                builderButton.BackColor = ButtonNormalColor;
+                return;
+            }
+
+            // If all three points set — open wizard
             if (MissionPointsStore.HasStart && MissionPointsStore.HasDelivery && MissionPointsStore.HasLanding)
             {
                 QueueOpenWizard();
                 return;
             }
 
-            // Відкрити вкладку Flight Planner для контексту користувача.
-            var menuFlightPlannerField = host.MainForm?.GetType().GetField("MenuFlightPlanner");
-            var menuFlightPlanner = menuFlightPlannerField?.GetValue(host.MainForm) as ToolStripButton;
-            menuFlightPlanner?.PerformClick();
-
-            pickingMode = true;
-            pickStep = MissionPointsStore.HasStart
-                ? (MissionPointsStore.HasDelivery ? (MissionPointsStore.HasLanding ? 0 : 2) : 1)
-                : 0;
-
-            MessageBox.Show(
-                "Режим побудови місії активний.\n\n" +
-                "Лівою кнопкою миші встановіть точки за порядком:\n" +
-                "1) СТАРТ\n2) ДОСТАВКА\n3) ПОСАДКА\n\n" +
-                "Після цього відкрийте Майстер місії та натисніть Згенерувати місію.",
-                "Балістика",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+            // Default: start single-click auto-mission mode
+            autoMissionMode = true;
+            builderButton.Text = "▶ Оберіть ціль...";
+            builderButton.BackColor = ButtonActiveColor;
         }
 
         private void OnMapMouseClick(object sender, MouseEventArgs e)
         {
             try
             {
-                if (!pickingMode || e.Button != MouseButtons.Left)
+                if (e.Button != MouseButtons.Left)
                 {
                     return;
                 }
@@ -159,6 +169,32 @@ namespace MissionWizardPlugin
                     p = map.FromLocalToLatLng(e.X, e.Y);
                 }
                 catch
+                {
+                    return;
+                }
+
+                // Auto-mission mode: single click builds full mission
+                if (autoMissionMode)
+                {
+                    autoMissionMode = false;
+                    builderButton.Text = "Балістика";
+                    builderButton.BackColor = ButtonNormalColor;
+
+                    var uiTarget = host?.MainForm as Control;
+                    if (uiTarget != null && !uiTarget.IsDisposed)
+                    {
+                        uiTarget.BeginInvoke(new Action(() =>
+                            AutoMissionService.Execute(host, p.Lat, p.Lng)));
+                    }
+                    else
+                    {
+                        AutoMissionService.Execute(host, p.Lat, p.Lng);
+                    }
+                    return;
+                }
+
+                // Manual 3-point picking mode (used from context menu)
+                if (!pickingMode)
                 {
                     return;
                 }
@@ -191,8 +227,11 @@ namespace MissionWizardPlugin
             }
             catch (Exception ex)
             {
+                autoMissionMode = false;
                 pickingMode = false;
                 pickStep = 0;
+                builderButton.Text = "Балістика";
+                builderButton.BackColor = ButtonNormalColor;
 
                 MessageBox.Show(
                     "Помилка обробки кліку на карті:\n" + ex.Message,

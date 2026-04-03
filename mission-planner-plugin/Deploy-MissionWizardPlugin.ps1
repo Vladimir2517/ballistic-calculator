@@ -2,7 +2,7 @@ param(
     [string]$MissionPlannerDir = "D:\mission planner",
     [string]$ProjectPath = ".\MissionWizardPlugin\MissionWizardPlugin.csproj",
     [string]$Configuration = "Debug",
-    [switch]$RestartMissionPlanner = $true
+    [bool]$RestartMissionPlanner = $true
 )
 
 $ErrorActionPreference = "Stop"
