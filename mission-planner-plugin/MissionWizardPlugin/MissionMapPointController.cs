@@ -345,9 +345,9 @@ namespace MissionWizardPlugin
                 System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
                 var url = string.Format(CultureInfo.InvariantCulture,
                     "https://api.open-meteo.com/v1/forecast?latitude={0}&longitude={1}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms", lat, lon);
-                var req = System.Net.WebRequest.Create(url);
+                var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create(url);
                 req.Timeout = 5000;
-                req.Headers["User-Agent"] = "MissionWizardPlugin/1.0";
+                req.UserAgent = "MissionWizardPlugin/1.0";
                 using (var resp = req.GetResponse())
                 using (var sr = new System.IO.StreamReader(resp.GetResponseStream()))
                 {
