@@ -11,6 +11,7 @@ namespace RadarPlugin
         private ToolStripButton topRadarButton;
         private ToolStrip menuStripOwner;
         private Image radarIcon;
+        private RadarMapForm radarMapForm;
 
         public override string Name => "Радар";
         public override string Version => "0.1.0";
@@ -58,6 +59,13 @@ namespace RadarPlugin
             {
                 radarIcon.Dispose();
                 radarIcon = null;
+            }
+
+            if (radarMapForm != null && !radarMapForm.IsDisposed)
+            {
+                radarMapForm.Close();
+                radarMapForm.Dispose();
+                radarMapForm = null;
             }
 
             return true;
@@ -168,16 +176,14 @@ namespace RadarPlugin
 
         private void OnTopRadarClick(object sender, EventArgs e)
         {
-            if (AlphaLauncher.TryLaunchOrActivate(Host, out var message))
+            if (radarMapForm != null && !radarMapForm.IsDisposed)
             {
+                radarMapForm.BringToFrontSafe();
                 return;
             }
 
-            MessageBox.Show(
-                message,
-                "Радар",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+            radarMapForm = new RadarMapForm(Host);
+            radarMapForm.Show();
         }
     }
 }
