@@ -445,15 +445,121 @@ namespace RadarPlugin
         {
             var snapshot = new RadarSnapshot();
 
-            try { snapshot.Threats = FetchThreats(); } catch { snapshot.Threats = new List<ThreatMarker>(); }
+            try { snapshot.Threats = FetchThreatsGeoJson(); } catch { snapshot.Threats = new List<ThreatMarker>(); }
             try { snapshot.Civil = FetchMarkersFromEndpoint(CivilAdsbUrl, "Civil"); } catch { snapshot.Civil = new List<ThreatMarker>(); }
             try { snapshot.OwnFpv = FetchMarkersFromEndpoint(OwnFpvUrl, "OwnFPV"); } catch { snapshot.OwnFpv = new List<ThreatMarker>(); }
-            try { snapshot.Enemy = FetchMarkersFromEndpoint(EnemyForcesUrl, "Enemy"); } catch { snapshot.Enemy = new List<ThreatMarker>(); }
-            try { snapshot.Ukraine = FetchMarkersFromEndpoint(UkraineForcesUrl, "Ukraine"); } catch { snapshot.Ukraine = new List<ThreatMarker>(); }
+            try { snapshot.Enemy = FetchGeoJsonPointMarkers(EnemyForcesUrl, "Enemy", "name_clean", "name"); } catch { snapshot.Enemy = new List<ThreatMarker>(); }
+            try { snapshot.Ukraine = FetchGeoJsonPointMarkers(UkraineForcesUrl, "Ukraine", "name_clean", "name"); } catch { snapshot.Ukraine = new List<ThreatMarker>(); }
             try { snapshot.OccupiedPolygons = FetchPolygonsFromEndpoint(OccupiedUrl); } catch { snapshot.OccupiedPolygons = new List<List<PointLatLng>>(); }
             try { snapshot.CountryPolygons = FetchPolygonsFromEndpoint(CountryBordersUrl); } catch { snapshot.CountryPolygons = new List<List<PointLatLng>>(); }
 
             return snapshot;
+        }
+
+        private static List<ThreatMarker> FetchThreatsGeoJson()
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+
+            var req = (HttpWebRequest)WebRequest.Create(ThreatsUrl);
+            req.Timeout = 7000;
+            req.UserAgent = "RadarPlugin/1.0";
+            req.Accept = "application/json";
+
+            using (var resp = req.GetResponse())
+            using (var sr = new StreamReader(resp.GetResponseStream()))
+            {
+                var json = sr.ReadToEnd();
+                var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+                var root = serializer.DeserializeObject(json);
+                return ExtractGeoJsonPointMarkers(root, "Threat", "title", "name", "type");
+            }
+        }
+
+        private static List<ThreatMarker> FetchGeoJsonPointMarkers(string url, string fallbackTitle, params string[] titleKeys)
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+
+            var req = (HttpWebRequest)WebRequest.Create(url);
+            req.Timeout = 7000;
+            req.UserAgent = "RadarPlugin/1.0";
+            req.Accept = "application/json";
+
+            using (var resp = req.GetResponse())
+            using (var sr = new StreamReader(resp.GetResponseStream()))
+            {
+                var json = sr.ReadToEnd();
+                var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+                var root = serializer.DeserializeObject(json);
+                return ExtractGeoJsonPointMarkers(root, fallbackTitle, titleKeys);
+            }
+        }
+
+        private static List<ThreatMarker> ExtractGeoJsonPointMarkers(object root, string fallbackTitle, params string[] titleKeys)
+        {
+            var result = new List<ThreatMarker>();
+            if (!(root is Dictionary<string, object> rootDict))
+            {
+                return result;
+            }
+
+            if (!rootDict.TryGetValue("features", out var featuresObj) || !(featuresObj is object[] features))
+            {
+                return result;
+            }
+
+            for (var i = 0; i < features.Length; i++)
+            {
+                if (!(features[i] is Dictionary<string, object> feature))
+                {
+                    continue;
+                }
+
+                if (!feature.TryGetValue("geometry", out var geomObj) || !(geomObj is Dictionary<string, object> geometry))
+                {
+                    continue;
+                }
+
+                var geomType = GetDictString(geometry, "type");
+                if (!string.Equals(geomType, "Point", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!geometry.TryGetValue("coordinates", out var coordsObj) || !(coordsObj is object[] coords) || coords.Length < 2)
+                {
+                    continue;
+                }
+
+                if (!TryToDouble(coords[0], out var lon) || !TryToDouble(coords[1], out var lat))
+                {
+                    continue;
+                }
+
+                Dictionary<string, object> props = null;
+                if (feature.TryGetValue("properties", out var propsObj))
+                {
+                    props = propsObj as Dictionary<string, object>;
+                }
+
+                var title = fallbackTitle;
+                if (props != null)
+                {
+                    var t = TryGetString(props, titleKeys);
+                    if (!string.IsNullOrWhiteSpace(t))
+                    {
+                        title = t;
+                    }
+                }
+
+                result.Add(new ThreatMarker
+                {
+                    Lat = lat,
+                    Lon = lon,
+                    Title = title
+                });
+            }
+
+            return result;
         }
 
         private static List<ThreatMarker> FetchMarkersFromEndpoint(string url, string fallbackTitle)
@@ -709,6 +815,16 @@ namespace RadarPlugin
             }
 
             return double.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+        }
+
+        private static string GetDictString(Dictionary<string, object> dict, string key)
+        {
+            if (dict == null || !dict.TryGetValue(key, out var value) || value == null)
+            {
+                return string.Empty;
+            }
+
+            return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
         }
 
         private interface ILatLonTitle
