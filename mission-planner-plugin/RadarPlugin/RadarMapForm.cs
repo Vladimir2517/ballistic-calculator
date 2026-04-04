@@ -11,6 +11,7 @@ using GMap.NET;
 using GMap.NET.MapProviders;
 using GMap.NET.WindowsForms;
 using GMap.NET.WindowsForms.Markers;
+using MissionPlanner.GCSViews;
 using MissionPlanner.Plugin;
 
 namespace RadarPlugin
@@ -101,6 +102,8 @@ namespace RadarPlugin
                 Position = new PointLatLng(49.0, 31.3)
             };
 
+            ApplyMissionPlannerMapStyle();
+
             markersOverlay = new GMapOverlay("RadarMarkers");
             map.Overlays.Add(markersOverlay);
 
@@ -118,6 +121,41 @@ namespace RadarPlugin
             };
 
             RefreshThreatMarkers();
+        }
+
+        private void ApplyMissionPlannerMapStyle()
+        {
+            try
+            {
+                var mpMap = FlightData.instance?.gMapControl1;
+                if (mpMap == null)
+                {
+                    return;
+                }
+
+                if (mpMap.MapProvider != null)
+                {
+                    map.MapProvider = mpMap.MapProvider;
+                }
+
+                map.MinZoom = mpMap.MinZoom;
+                map.MaxZoom = mpMap.MaxZoom;
+                map.Zoom = mpMap.Zoom;
+                map.Position = mpMap.Position;
+                map.CanDragMap = mpMap.CanDragMap;
+                map.DragButton = mpMap.DragButton;
+                map.GrayScaleMode = mpMap.GrayScaleMode;
+                map.MarkersEnabled = mpMap.MarkersEnabled;
+                map.PolygonsEnabled = mpMap.PolygonsEnabled;
+                map.RoutesEnabled = mpMap.RoutesEnabled;
+                map.ShowCenter = mpMap.ShowCenter;
+                map.EmptyTileColor = mpMap.EmptyTileColor;
+                map.RetryLoadTile = mpMap.RetryLoadTile;
+            }
+            catch
+            {
+                // Keep radar map usable even if Mission Planner map internals change.
+            }
         }
 
         public void BringToFrontSafe()

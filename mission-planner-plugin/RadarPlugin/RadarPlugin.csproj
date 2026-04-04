@@ -17,6 +17,10 @@
       <HintPath>$(MissionPlannerDir)\MissionPlanner.exe</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="MissionPlanner.Controls">
+      <HintPath>$(MissionPlannerDir)\MissionPlanner.Controls.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="GMap.NET.Core">
       <HintPath>$(MissionPlannerDir)\GMap.NET.Core.dll</HintPath>
       <Private>false</Private>
