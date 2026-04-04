@@ -11,6 +11,7 @@ namespace RadarPlugin
         private ToolStripButton topRadarButton;
         private ToolStrip menuStripOwner;
         private Image radarIcon;
+        private RadarOverlayController radarController;
 
         public override string Name => "Радар";
         public override string Version => "0.1.0";
@@ -25,6 +26,7 @@ namespace RadarPlugin
         {
             try
             {
+                radarController = new RadarOverlayController(Host);
                 TryAddTopMenuButton();
                 return true;
             }
@@ -60,6 +62,12 @@ namespace RadarPlugin
                 radarIcon = null;
             }
 
+            if (radarController != null)
+            {
+                radarController.Dispose();
+                radarController = null;
+            }
+
             return true;
         }
 
@@ -91,7 +99,7 @@ namespace RadarPlugin
                 DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
                 Image = radarIcon,
                 ImageTransparentColor = Color.Transparent,
-                ToolTipText = "Відкрити Alpha Radar"
+                ToolTipText = "Відкрити вкладку Радар"
             };
             topRadarButton.Click += OnTopRadarClick;
 
@@ -168,16 +176,11 @@ namespace RadarPlugin
 
         private void OnTopRadarClick(object sender, EventArgs e)
         {
-            if (AlphaLauncher.TryLaunchOrActivate(Host, out var message))
+            if (radarController != null)
             {
+                radarController.ActivateRadarTab();
                 return;
             }
-
-            MessageBox.Show(
-                message,
-                "Радар",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
         }
     }
 }
