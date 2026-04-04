@@ -20,11 +20,19 @@ namespace RadarPlugin
         private const string ThreatsUrl = "http://127.0.0.1:8081/api/threats";
         private const string CivilAdsbUrl = "http://127.0.0.1:8081/api/civil_adsb/airplanes";
         private const string OwnFpvUrl = "http://127.0.0.1:8081/api/fpv/own";
+        private const string OccupiedUrl = "http://127.0.0.1:8081/api/deepstate/controlled";
+        private const string EnemyForcesUrl = "http://127.0.0.1:8081/api/deepstate/enemy_forces";
+        private const string UkraineForcesUrl = "http://127.0.0.1:8081/api/ukraine/forces";
+        private const string CountryBordersUrl = "http://127.0.0.1:8081/api/ukraine/border";
 
         private readonly GMapControl map;
         private readonly GMapOverlay threatsOverlay;
         private readonly GMapOverlay civilOverlay;
         private readonly GMapOverlay ownFpvOverlay;
+        private readonly GMapOverlay occupiedOverlay;
+        private readonly GMapOverlay enemyOverlay;
+        private readonly GMapOverlay ukraineOverlay;
+        private readonly GMapOverlay countryOverlay;
         private readonly Label statusLabel;
         private readonly Timer refreshTimer;
         private volatile bool refreshInProgress;
@@ -102,6 +110,14 @@ namespace RadarPlugin
             threatsOverlay = new GMapOverlay("RadarThreats");
             civilOverlay = new GMapOverlay("RadarCivil");
             ownFpvOverlay = new GMapOverlay("RadarOwnFpv");
+            occupiedOverlay = new GMapOverlay("RadarOccupied");
+            enemyOverlay = new GMapOverlay("RadarEnemy");
+            ukraineOverlay = new GMapOverlay("RadarUkraine");
+            countryOverlay = new GMapOverlay("RadarCountry");
+            map.Overlays.Add(countryOverlay);
+            map.Overlays.Add(occupiedOverlay);
+            map.Overlays.Add(enemyOverlay);
+            map.Overlays.Add(ukraineOverlay);
             map.Overlays.Add(civilOverlay);
             map.Overlays.Add(ownFpvOverlay);
             map.Overlays.Add(threatsOverlay);
@@ -195,10 +211,13 @@ namespace RadarPlugin
                     {
                         var unchangedText = string.Format(
                             CultureInfo.InvariantCulture,
-                            "Угрозы: {0} | ADS-B: {1} | FPV: {2} | Без изменений: {3:HH:mm:ss}",
+                            "Угрозы: {0} | ADS-B: {1} | FPV: {2} | Enemy: {3} | UA: {4} | Poly: {5} | Без изменений: {6:HH:mm:ss}",
                             snapshot.Threats.Count,
                             snapshot.Civil.Count,
                             snapshot.OwnFpv.Count,
+                            snapshot.Enemy.Count,
+                            snapshot.Ukraine.Count,
+                            snapshot.OccupiedPolygons.Count + snapshot.CountryPolygons.Count,
                             DateTime.Now);
                         ApplyStatusSafe(unchangedText);
                         return;
@@ -264,14 +283,71 @@ namespace RadarPlugin
                     ownFpvOverlay.Markers.Add(marker);
                 }
 
+                enemyOverlay.Markers.Clear();
+                foreach (var e in snapshot.Enemy)
+                {
+                    var marker = new GMarkerGoogle(new PointLatLng(e.Lat, e.Lon), GMarkerGoogleType.orange_dot)
+                    {
+                        ToolTipText = e.Title,
+                        ToolTipMode = MarkerTooltipMode.OnMouseOver
+                    };
+                    enemyOverlay.Markers.Add(marker);
+                }
+
+                ukraineOverlay.Markers.Clear();
+                foreach (var u in snapshot.Ukraine)
+                {
+                    var marker = new GMarkerGoogle(new PointLatLng(u.Lat, u.Lon), GMarkerGoogleType.green_small)
+                    {
+                        ToolTipText = u.Title,
+                        ToolTipMode = MarkerTooltipMode.OnMouseOver
+                    };
+                    ukraineOverlay.Markers.Add(marker);
+                }
+
+                occupiedOverlay.Polygons.Clear();
+                foreach (var poly in snapshot.OccupiedPolygons)
+                {
+                    if (poly.Count < 3)
+                    {
+                        continue;
+                    }
+
+                    var polygon = new GMapPolygon(poly, "occupied")
+                    {
+                        Fill = new SolidBrush(Color.FromArgb(40, 210, 70, 70)),
+                        Stroke = new Pen(Color.FromArgb(160, 210, 70, 70), 1.5f)
+                    };
+                    occupiedOverlay.Polygons.Add(polygon);
+                }
+
+                countryOverlay.Polygons.Clear();
+                foreach (var poly in snapshot.CountryPolygons)
+                {
+                    if (poly.Count < 3)
+                    {
+                        continue;
+                    }
+
+                    var polygon = new GMapPolygon(poly, "country")
+                    {
+                        Fill = new SolidBrush(Color.FromArgb(10, 80, 130, 210)),
+                        Stroke = new Pen(Color.FromArgb(200, 80, 130, 210), 1.3f)
+                    };
+                    countryOverlay.Polygons.Add(polygon);
+                }
+
                 hasRenderedData = true;
                 lastDataFingerprint = fingerprint;
                 statusLabel.Text = string.Format(
                     CultureInfo.InvariantCulture,
-                    "Угрозы: {0} | ADS-B: {1} | FPV: {2} | Обновлено: {3:HH:mm:ss}",
+                    "Угрозы: {0} | ADS-B: {1} | FPV: {2} | Enemy: {3} | UA: {4} | Poly: {5} | Обновлено: {6:HH:mm:ss}",
                     snapshot.Threats.Count,
                     snapshot.Civil.Count,
                     snapshot.OwnFpv.Count,
+                    snapshot.Enemy.Count,
+                    snapshot.Ukraine.Count,
+                    snapshot.OccupiedPolygons.Count + snapshot.CountryPolygons.Count,
                     DateTime.Now);
                 map.Refresh();
             });
@@ -303,6 +379,10 @@ namespace RadarPlugin
                 hash = HashThreats(hash, snapshot.Threats);
                 hash = HashThreats(hash, snapshot.Civil);
                 hash = HashThreats(hash, snapshot.OwnFpv);
+                hash = HashThreats(hash, snapshot.Enemy);
+                hash = HashThreats(hash, snapshot.Ukraine);
+                hash = HashPolygons(hash, snapshot.OccupiedPolygons);
+                hash = HashPolygons(hash, snapshot.CountryPolygons);
 
                 return hash;
             }
@@ -319,6 +399,26 @@ namespace RadarPlugin
                     hash = hash * 31 + items[i].Lon.GetHashCode();
                     hash = hash * 31 + (items[i].Title ?? string.Empty).GetHashCode();
                 }
+                return hash;
+            }
+        }
+
+        private static int HashPolygons(int seed, IList<List<PointLatLng>> polygons)
+        {
+            unchecked
+            {
+                var hash = seed * 31 + polygons.Count;
+                for (var i = 0; i < polygons.Count; i++)
+                {
+                    var poly = polygons[i];
+                    hash = hash * 31 + poly.Count;
+                    for (var j = 0; j < poly.Count; j++)
+                    {
+                        hash = hash * 31 + poly[j].Lat.GetHashCode();
+                        hash = hash * 31 + poly[j].Lng.GetHashCode();
+                    }
+                }
+
                 return hash;
             }
         }
@@ -348,6 +448,10 @@ namespace RadarPlugin
             try { snapshot.Threats = FetchThreats(); } catch { snapshot.Threats = new List<ThreatMarker>(); }
             try { snapshot.Civil = FetchMarkersFromEndpoint(CivilAdsbUrl, "Civil"); } catch { snapshot.Civil = new List<ThreatMarker>(); }
             try { snapshot.OwnFpv = FetchMarkersFromEndpoint(OwnFpvUrl, "OwnFPV"); } catch { snapshot.OwnFpv = new List<ThreatMarker>(); }
+            try { snapshot.Enemy = FetchMarkersFromEndpoint(EnemyForcesUrl, "Enemy"); } catch { snapshot.Enemy = new List<ThreatMarker>(); }
+            try { snapshot.Ukraine = FetchMarkersFromEndpoint(UkraineForcesUrl, "Ukraine"); } catch { snapshot.Ukraine = new List<ThreatMarker>(); }
+            try { snapshot.OccupiedPolygons = FetchPolygonsFromEndpoint(OccupiedUrl); } catch { snapshot.OccupiedPolygons = new List<List<PointLatLng>>(); }
+            try { snapshot.CountryPolygons = FetchPolygonsFromEndpoint(CountryBordersUrl); } catch { snapshot.CountryPolygons = new List<List<PointLatLng>>(); }
 
             return snapshot;
         }
@@ -367,6 +471,26 @@ namespace RadarPlugin
                 var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
                 var root = serializer.DeserializeObject(json);
                 return ExtractThreatMarkers(root, fallbackTitle);
+            }
+        }
+
+        private static List<List<PointLatLng>> FetchPolygonsFromEndpoint(string url)
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+
+            var req = (HttpWebRequest)WebRequest.Create(url);
+            req.Timeout = 6000;
+            req.UserAgent = "RadarPlugin/1.0";
+
+            using (var resp = req.GetResponse())
+            using (var sr = new StreamReader(resp.GetResponseStream()))
+            {
+                var json = sr.ReadToEnd();
+                var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+                var root = serializer.DeserializeObject(json);
+                var polygons = new List<List<PointLatLng>>();
+                CollectPolygons(root, polygons);
+                return polygons;
             }
         }
 
@@ -479,6 +603,114 @@ namespace RadarPlugin
             return null;
         }
 
+        private static void CollectPolygons(object node, ICollection<List<PointLatLng>> output)
+        {
+            if (node == null)
+            {
+                return;
+            }
+
+            if (TryParseCoordinateRing(node, out var ring) && ring.Count >= 3)
+            {
+                output.Add(ring);
+                return;
+            }
+
+            if (node is object[] arr)
+            {
+                foreach (var child in arr)
+                {
+                    CollectPolygons(child, output);
+                }
+
+                return;
+            }
+
+            if (node is Dictionary<string, object> dict)
+            {
+                foreach (var kv in dict)
+                {
+                    CollectPolygons(kv.Value, output);
+                }
+            }
+        }
+
+        private static bool TryParseCoordinateRing(object node, out List<PointLatLng> ring)
+        {
+            ring = null;
+            if (!(node is object[] arr) || arr.Length < 3)
+            {
+                return false;
+            }
+
+            var points = new List<PointLatLng>();
+            for (var i = 0; i < arr.Length; i++)
+            {
+                if (!TryParsePoint(arr[i], out var point))
+                {
+                    return false;
+                }
+
+                points.Add(point);
+            }
+
+            ring = points;
+            return true;
+        }
+
+        private static bool TryParsePoint(object node, out PointLatLng point)
+        {
+            point = default(PointLatLng);
+            if (!(node is object[] pair) || pair.Length < 2)
+            {
+                return false;
+            }
+
+            if (!TryToDouble(pair[0], out var a) || !TryToDouble(pair[1], out var b))
+            {
+                return false;
+            }
+
+            // GeoJSON format usually [lon, lat]
+            if (Math.Abs(a) <= 180 && Math.Abs(b) <= 90)
+            {
+                point = new PointLatLng(b, a);
+                return true;
+            }
+
+            // Fallback [lat, lon]
+            if (Math.Abs(a) <= 90 && Math.Abs(b) <= 180)
+            {
+                point = new PointLatLng(a, b);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryToDouble(object value, out double result)
+        {
+            if (value is double dd)
+            {
+                result = dd;
+                return true;
+            }
+
+            if (value is float ff)
+            {
+                result = ff;
+                return true;
+            }
+
+            if (value is int ii)
+            {
+                result = ii;
+                return true;
+            }
+
+            return double.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture, out result);
+        }
+
         private interface ILatLonTitle
         {
             double Lat { get; }
@@ -498,6 +730,10 @@ namespace RadarPlugin
             public List<ThreatMarker> Threats { get; set; } = new List<ThreatMarker>();
             public List<ThreatMarker> Civil { get; set; } = new List<ThreatMarker>();
             public List<ThreatMarker> OwnFpv { get; set; } = new List<ThreatMarker>();
+            public List<ThreatMarker> Enemy { get; set; } = new List<ThreatMarker>();
+            public List<ThreatMarker> Ukraine { get; set; } = new List<ThreatMarker>();
+            public List<List<PointLatLng>> OccupiedPolygons { get; set; } = new List<List<PointLatLng>>();
+            public List<List<PointLatLng>> CountryPolygons { get; set; } = new List<List<PointLatLng>>();
         }
     }
 }
