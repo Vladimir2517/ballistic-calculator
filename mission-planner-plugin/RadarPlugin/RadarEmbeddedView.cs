@@ -18,9 +18,13 @@ namespace RadarPlugin
     internal sealed class RadarEmbeddedView : UserControl
     {
         private const string ThreatsUrl = "http://127.0.0.1:8081/api/threats";
+        private const string CivilAdsbUrl = "http://127.0.0.1:8081/api/civil_adsb/airplanes";
+        private const string OwnFpvUrl = "http://127.0.0.1:8081/api/fpv/own";
 
         private readonly GMapControl map;
-        private readonly GMapOverlay markersOverlay;
+        private readonly GMapOverlay threatsOverlay;
+        private readonly GMapOverlay civilOverlay;
+        private readonly GMapOverlay ownFpvOverlay;
         private readonly Label statusLabel;
         private readonly Timer refreshTimer;
         private volatile bool refreshInProgress;
@@ -95,8 +99,12 @@ namespace RadarPlugin
 
             ApplyMissionPlannerMapStyle();
 
-            markersOverlay = new GMapOverlay("RadarMarkers");
-            map.Overlays.Add(markersOverlay);
+            threatsOverlay = new GMapOverlay("RadarThreats");
+            civilOverlay = new GMapOverlay("RadarCivil");
+            ownFpvOverlay = new GMapOverlay("RadarOwnFpv");
+            map.Overlays.Add(civilOverlay);
+            map.Overlays.Add(ownFpvOverlay);
+            map.Overlays.Add(threatsOverlay);
 
             Controls.Add(map);
             Controls.Add(topPanel);
@@ -180,16 +188,23 @@ namespace RadarPlugin
             {
                 try
                 {
-                    var threats = FetchThreats();
-                    var fingerprint = BuildDataFingerprint(threats);
+                    var snapshot = FetchSnapshot();
+                    var fingerprint = BuildDataFingerprint(snapshot);
 
                     if (!forceUiUpdate && hasRenderedData && fingerprint == lastDataFingerprint)
                     {
-                        ApplyStatusSafe(string.Format(CultureInfo.InvariantCulture, "Маркеров: {0}  |  Без изменений: {1:HH:mm:ss}", threats.Count, DateTime.Now));
+                        var unchangedText = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "Угрозы: {0} | ADS-B: {1} | FPV: {2} | Без изменений: {3:HH:mm:ss}",
+                            snapshot.Threats.Count,
+                            snapshot.Civil.Count,
+                            snapshot.OwnFpv.Count,
+                            DateTime.Now);
+                        ApplyStatusSafe(unchangedText);
                         return;
                     }
 
-                    ApplyMarkersSafe(threats, fingerprint);
+                    ApplyMarkersSafe(snapshot, fingerprint);
                 }
                 catch (Exception ex)
                 {
@@ -202,7 +217,7 @@ namespace RadarPlugin
             });
         }
 
-        private void ApplyMarkersSafe(List<ThreatMarker> threats, int fingerprint)
+        private void ApplyMarkersSafe(RadarSnapshot snapshot, int fingerprint)
         {
             if (IsDisposed || !IsHandleCreated)
             {
@@ -216,20 +231,48 @@ namespace RadarPlugin
                     return;
                 }
 
-                markersOverlay.Markers.Clear();
-                foreach (var t in threats)
+                threatsOverlay.Markers.Clear();
+                foreach (var t in snapshot.Threats)
                 {
                     var marker = new GMarkerGoogle(new PointLatLng(t.Lat, t.Lon), GMarkerGoogleType.red_dot)
                     {
                         ToolTipText = t.Title,
                         ToolTipMode = MarkerTooltipMode.OnMouseOver
                     };
-                    markersOverlay.Markers.Add(marker);
+                    threatsOverlay.Markers.Add(marker);
+                }
+
+                civilOverlay.Markers.Clear();
+                foreach (var c in snapshot.Civil)
+                {
+                    var marker = new GMarkerGoogle(new PointLatLng(c.Lat, c.Lon), GMarkerGoogleType.blue_small)
+                    {
+                        ToolTipText = c.Title,
+                        ToolTipMode = MarkerTooltipMode.OnMouseOver
+                    };
+                    civilOverlay.Markers.Add(marker);
+                }
+
+                ownFpvOverlay.Markers.Clear();
+                foreach (var o in snapshot.OwnFpv)
+                {
+                    var marker = new GMarkerGoogle(new PointLatLng(o.Lat, o.Lon), GMarkerGoogleType.green_dot)
+                    {
+                        ToolTipText = o.Title,
+                        ToolTipMode = MarkerTooltipMode.OnMouseOver
+                    };
+                    ownFpvOverlay.Markers.Add(marker);
                 }
 
                 hasRenderedData = true;
                 lastDataFingerprint = fingerprint;
-                statusLabel.Text = string.Format(CultureInfo.InvariantCulture, "Маркеров: {0}  |  Обновлено: {1:HH:mm:ss}", threats.Count, DateTime.Now);
+                statusLabel.Text = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Угрозы: {0} | ADS-B: {1} | FPV: {2} | Обновлено: {3:HH:mm:ss}",
+                    snapshot.Threats.Count,
+                    snapshot.Civil.Count,
+                    snapshot.OwnFpv.Count,
+                    DateTime.Now);
                 map.Refresh();
             });
         }
@@ -252,20 +295,30 @@ namespace RadarPlugin
             });
         }
 
-        private static int BuildDataFingerprint(IList<ThreatMarker> threats)
+        private static int BuildDataFingerprint(RadarSnapshot snapshot)
         {
             unchecked
             {
                 var hash = 17;
-                hash = hash * 31 + threats.Count;
-                for (var i = 0; i < threats.Count; i++)
-                {
-                    var t = threats[i];
-                    hash = hash * 31 + t.Lat.GetHashCode();
-                    hash = hash * 31 + t.Lon.GetHashCode();
-                    hash = hash * 31 + (t.Title ?? string.Empty).GetHashCode();
-                }
+                hash = HashThreats(hash, snapshot.Threats);
+                hash = HashThreats(hash, snapshot.Civil);
+                hash = HashThreats(hash, snapshot.OwnFpv);
 
+                return hash;
+            }
+        }
+
+        private static int HashThreats<T>(int seed, IList<T> items) where T : ILatLonTitle
+        {
+            unchecked
+            {
+                var hash = seed * 31 + items.Count;
+                for (var i = 0; i < items.Count; i++)
+                {
+                    hash = hash * 31 + items[i].Lat.GetHashCode();
+                    hash = hash * 31 + items[i].Lon.GetHashCode();
+                    hash = hash * 31 + (items[i].Title ?? string.Empty).GetHashCode();
+                }
                 return hash;
             }
         }
@@ -288,7 +341,41 @@ namespace RadarPlugin
             }
         }
 
+        private static RadarSnapshot FetchSnapshot()
+        {
+            var snapshot = new RadarSnapshot();
+
+            try { snapshot.Threats = FetchThreats(); } catch { snapshot.Threats = new List<ThreatMarker>(); }
+            try { snapshot.Civil = FetchMarkersFromEndpoint(CivilAdsbUrl, "Civil"); } catch { snapshot.Civil = new List<ThreatMarker>(); }
+            try { snapshot.OwnFpv = FetchMarkersFromEndpoint(OwnFpvUrl, "OwnFPV"); } catch { snapshot.OwnFpv = new List<ThreatMarker>(); }
+
+            return snapshot;
+        }
+
+        private static List<ThreatMarker> FetchMarkersFromEndpoint(string url, string fallbackTitle)
+        {
+            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+
+            var req = (HttpWebRequest)WebRequest.Create(url);
+            req.Timeout = 5000;
+            req.UserAgent = "RadarPlugin/1.0";
+
+            using (var resp = req.GetResponse())
+            using (var sr = new StreamReader(resp.GetResponseStream()))
+            {
+                var json = sr.ReadToEnd();
+                var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
+                var root = serializer.DeserializeObject(json);
+                return ExtractThreatMarkers(root, fallbackTitle);
+            }
+        }
+
         private static List<ThreatMarker> ExtractThreatMarkers(object root)
+        {
+            return ExtractThreatMarkers(root, "Threat");
+        }
+
+        private static List<ThreatMarker> ExtractThreatMarkers(object root, string fallbackTitle)
         {
             var result = new List<ThreatMarker>();
 
@@ -296,7 +383,7 @@ namespace RadarPlugin
             {
                 foreach (var item in arr)
                 {
-                    TryAddThreat(item, result);
+                    TryAddThreat(item, result, fallbackTitle);
                 }
                 return result;
             }
@@ -307,7 +394,7 @@ namespace RadarPlugin
                 {
                     foreach (var item in threatsArr)
                     {
-                        TryAddThreat(item, result);
+                        TryAddThreat(item, result, fallbackTitle);
                     }
                     return result;
                 }
@@ -316,7 +403,7 @@ namespace RadarPlugin
                 {
                     foreach (var item in itemsArr)
                     {
-                        TryAddThreat(item, result);
+                        TryAddThreat(item, result, fallbackTitle);
                     }
                     return result;
                 }
@@ -325,7 +412,7 @@ namespace RadarPlugin
             return result;
         }
 
-        private static void TryAddThreat(object item, ICollection<ThreatMarker> output)
+        private static void TryAddThreat(object item, ICollection<ThreatMarker> output, string fallbackTitle)
         {
             if (!(item is Dictionary<string, object> d))
             {
@@ -339,7 +426,7 @@ namespace RadarPlugin
                 return;
             }
 
-            var title = TryGetString(d, "title", "name", "callsign", "id", "type") ?? "Threat";
+            var title = TryGetString(d, "title", "name", "callsign", "id", "type") ?? fallbackTitle;
             output.Add(new ThreatMarker
             {
                 Lat = lat.Value,
@@ -392,11 +479,25 @@ namespace RadarPlugin
             return null;
         }
 
-        private sealed class ThreatMarker
+        private interface ILatLonTitle
+        {
+            double Lat { get; }
+            double Lon { get; }
+            string Title { get; }
+        }
+
+        private sealed class ThreatMarker : ILatLonTitle
         {
             public double Lat { get; set; }
             public double Lon { get; set; }
             public string Title { get; set; }
+        }
+
+        private sealed class RadarSnapshot
+        {
+            public List<ThreatMarker> Threats { get; set; } = new List<ThreatMarker>();
+            public List<ThreatMarker> Civil { get; set; } = new List<ThreatMarker>();
+            public List<ThreatMarker> OwnFpv { get; set; } = new List<ThreatMarker>();
         }
     }
 }
