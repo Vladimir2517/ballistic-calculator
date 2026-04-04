@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
 using MissionPlanner.Plugin;
@@ -14,6 +14,7 @@ namespace RadarPlugin
         private Image radarIcon;
         private RadarEmbeddedView radarView;
         private Control radarHost;
+        private readonly List<ToolStripItem> navigationSubscriptions = new List<ToolStripItem>();
 
         public override string Name => "Радар";
         public override string Version => "0.1.0";
@@ -70,6 +71,12 @@ namespace RadarPlugin
                 radarHost = null;
             }
 
+            foreach (var item in navigationSubscriptions)
+            {
+                item.Click -= OnMainNavigationClick;
+            }
+            navigationSubscriptions.Clear();
+
             return true;
         }
 
@@ -114,6 +121,8 @@ namespace RadarPlugin
             {
                 menuStripOwner.Items.Add(topRadarButton);
             }
+
+            SubscribeMainNavigation();
         }
 
         private static int GetInsertIndexAfterHelp(ToolStrip owner, ToolStripItem helpItem)
@@ -181,8 +190,31 @@ namespace RadarPlugin
             EnsureRadarEmbeddedView();
             if (radarView != null)
             {
+                radarView.Visible = true;
+                radarView.BringToFront();
                 radarView.ActivateView();
             }
+        }
+
+        private void OnMainNavigationClick(object sender, EventArgs e)
+        {
+            if (sender == topRadarButton)
+            {
+                return;
+            }
+
+            HideRadarView();
+        }
+
+        private void HideRadarView()
+        {
+            if (radarView == null || radarView.IsDisposed)
+            {
+                return;
+            }
+
+            radarView.Visible = false;
+            radarView.SendToBack();
         }
 
         private void EnsureRadarEmbeddedView()
@@ -206,7 +238,27 @@ namespace RadarPlugin
 
             radarView = new RadarEmbeddedView();
             radarHost.Controls.Add(radarView);
+            radarView.Visible = false;
             radarView.BringToFront();
+        }
+
+        private void SubscribeMainNavigation()
+        {
+            if (menuStripOwner == null)
+            {
+                return;
+            }
+
+            foreach (ToolStripItem item in menuStripOwner.Items)
+            {
+                if (item == null || item == topRadarButton)
+                {
+                    continue;
+                }
+
+                item.Click += OnMainNavigationClick;
+                navigationSubscriptions.Add(item);
+            }
         }
 
         private static Control FindMainContentHost(Control root)
