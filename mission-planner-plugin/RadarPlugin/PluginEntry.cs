@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
 using MissionPlanner.Plugin;
@@ -11,7 +12,8 @@ namespace RadarPlugin
         private ToolStripButton topRadarButton;
         private ToolStrip menuStripOwner;
         private Image radarIcon;
-        private RadarOverlayController radarController;
+        private RadarEmbeddedView radarView;
+        private Control radarHost;
 
         public override string Name => "Радар";
         public override string Version => "0.1.0";
@@ -26,7 +28,6 @@ namespace RadarPlugin
         {
             try
             {
-                radarController = new RadarOverlayController(Host);
                 TryAddTopMenuButton();
                 return true;
             }
@@ -62,10 +63,11 @@ namespace RadarPlugin
                 radarIcon = null;
             }
 
-            if (radarController != null)
+            if (radarView != null)
             {
-                radarController.Dispose();
-                radarController = null;
+                radarView.Dispose();
+                radarView = null;
+                radarHost = null;
             }
 
             return true;
@@ -176,10 +178,90 @@ namespace RadarPlugin
 
         private void OnTopRadarClick(object sender, EventArgs e)
         {
-            if (radarController != null)
+            EnsureRadarEmbeddedView();
+            if (radarView != null)
             {
-                radarController.ActivateRadarTab();
+                radarView.ActivateView();
+            }
+        }
+
+        private void EnsureRadarEmbeddedView()
+        {
+            if (radarView != null && !radarView.IsDisposed)
+            {
                 return;
+            }
+
+            var mainForm = Host?.MainForm as Control;
+            if (mainForm == null)
+            {
+                return;
+            }
+
+            radarHost = FindMainContentHost(mainForm);
+            if (radarHost == null)
+            {
+                radarHost = mainForm;
+            }
+
+            radarView = new RadarEmbeddedView();
+            radarHost.Controls.Add(radarView);
+            radarView.BringToFront();
+        }
+
+        private static Control FindMainContentHost(Control root)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            Control best = null;
+            var bestScore = -1L;
+
+            foreach (var control in EnumerateControls(root))
+            {
+                if (control == null || control.IsDisposed)
+                {
+                    continue;
+                }
+
+                if (control is Form || control is MenuStrip || control is StatusStrip || control is ToolStrip)
+                {
+                    continue;
+                }
+
+                if (!(control is Panel || control is UserControl || control is SplitContainer || control.GetType().Name.Contains("Panel")))
+                {
+                    continue;
+                }
+
+                if (control.Width < 400 || control.Height < 300)
+                {
+                    continue;
+                }
+
+                var area = (long)control.Width * control.Height;
+                var score = area + (control.Dock == DockStyle.Fill ? 1_000_000 : 0) + control.Controls.Count * 1000;
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = control;
+                }
+            }
+
+            return best;
+        }
+
+        private static System.Collections.Generic.IEnumerable<Control> EnumerateControls(Control root)
+        {
+            foreach (Control c in root.Controls)
+            {
+                yield return c;
+                foreach (var child in EnumerateControls(c))
+                {
+                    yield return child;
+                }
             }
         }
     }
