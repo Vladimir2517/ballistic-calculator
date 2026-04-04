@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using GMap.NET;
@@ -22,6 +23,9 @@ namespace RadarPlugin
         private readonly GMapOverlay markersOverlay;
         private readonly Label statusLabel;
         private readonly Timer refreshTimer;
+        private volatile bool refreshInProgress;
+        private int lastDataFingerprint;
+        private bool hasRenderedData;
 
         public RadarEmbeddedView()
         {
@@ -57,7 +61,7 @@ namespace RadarPlugin
                 FlatStyle = FlatStyle.Flat
             };
             refreshButton.FlatAppearance.BorderSize = 0;
-            refreshButton.Click += (_, __) => RefreshMarkers();
+            refreshButton.Click += (_, __) => StartRefresh(forceUiUpdate: true);
 
             statusLabel = new Label
             {
@@ -98,14 +102,14 @@ namespace RadarPlugin
             Controls.Add(topPanel);
 
             refreshTimer = new Timer { Interval = 5000 };
-            refreshTimer.Tick += (_, __) => RefreshMarkers();
+            refreshTimer.Tick += (_, __) => StartRefresh(forceUiUpdate: false);
 
             VisibleChanged += (_, __) =>
             {
                 if (Visible)
                 {
                     refreshTimer.Start();
-                    RefreshMarkers();
+                    StartRefresh(forceUiUpdate: true);
                 }
                 else
                 {
@@ -124,7 +128,7 @@ namespace RadarPlugin
         {
             ApplyMissionPlannerMapStyle();
             refreshTimer.Start();
-            RefreshMarkers();
+            StartRefresh(forceUiUpdate: true);
             BringToFront();
         }
 
@@ -162,11 +166,55 @@ namespace RadarPlugin
             }
         }
 
-        private void RefreshMarkers()
+        private void StartRefresh(bool forceUiUpdate)
         {
-            try
+            if (refreshInProgress)
             {
-                var threats = FetchThreats();
+                return;
+            }
+
+            refreshInProgress = true;
+            statusLabel.Text = "Обновление...";
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    var threats = FetchThreats();
+                    var fingerprint = BuildDataFingerprint(threats);
+
+                    if (!forceUiUpdate && hasRenderedData && fingerprint == lastDataFingerprint)
+                    {
+                        ApplyStatusSafe(string.Format(CultureInfo.InvariantCulture, "Маркеров: {0}  |  Без изменений: {1:HH:mm:ss}", threats.Count, DateTime.Now));
+                        return;
+                    }
+
+                    ApplyMarkersSafe(threats, fingerprint);
+                }
+                catch (Exception ex)
+                {
+                    ApplyStatusSafe("Ошибка: " + ex.Message);
+                }
+                finally
+                {
+                    refreshInProgress = false;
+                }
+            });
+        }
+
+        private void ApplyMarkersSafe(List<ThreatMarker> threats, int fingerprint)
+        {
+            if (IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+
+            BeginInvoke((MethodInvoker)delegate
+            {
+                if (IsDisposed)
+                {
+                    return;
+                }
 
                 markersOverlay.Markers.Clear();
                 foreach (var t in threats)
@@ -179,12 +227,46 @@ namespace RadarPlugin
                     markersOverlay.Markers.Add(marker);
                 }
 
+                hasRenderedData = true;
+                lastDataFingerprint = fingerprint;
                 statusLabel.Text = string.Format(CultureInfo.InvariantCulture, "Маркеров: {0}  |  Обновлено: {1:HH:mm:ss}", threats.Count, DateTime.Now);
                 map.Refresh();
-            }
-            catch (Exception ex)
+            });
+        }
+
+        private void ApplyStatusSafe(string message)
+        {
+            if (IsDisposed || !IsHandleCreated)
             {
-                statusLabel.Text = "Ошибка: " + ex.Message;
+                return;
+            }
+
+            BeginInvoke((MethodInvoker)delegate
+            {
+                if (IsDisposed)
+                {
+                    return;
+                }
+
+                statusLabel.Text = message;
+            });
+        }
+
+        private static int BuildDataFingerprint(IList<ThreatMarker> threats)
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = hash * 31 + threats.Count;
+                for (var i = 0; i < threats.Count; i++)
+                {
+                    var t = threats[i];
+                    hash = hash * 31 + t.Lat.GetHashCode();
+                    hash = hash * 31 + t.Lon.GetHashCode();
+                    hash = hash * 31 + (t.Title ?? string.Empty).GetHashCode();
+                }
+
+                return hash;
             }
         }
 
